@@ -25,19 +25,23 @@ type SeedProduct = {
   variants?: { sku: string; title: string; options: Record<string, string>; price: number; stock: number }[];
 };
 
+type SeedUser = { name: string; email?: string; phone?: string; locale?: "bn" | "en" };
+
 type SeedStore = {
-  name: string;
+  nameBn: string;
+  nameEn: string;
   subdomain: string;
   language: "bn" | "en";
-  owner: { name: string; email?: string; phone?: string };
-  staff?: { name: string; email?: string; phone?: string }[];
+  owner: SeedUser;
+  staff?: SeedUser[];
   categories: { name: string; slug: string }[];
   products: SeedProduct[];
 };
 
 const stores: SeedStore[] = [
   {
-    name: "ঢাকা ফ্যাশন হাউস",
+    nameBn: "ঢাকা ফ্যাশন হাউস",
+    nameEn: "Dhaka Fashion House",
     subdomain: "dhaka-fashion",
     language: "bn",
     owner: { name: "রহিম উদ্দিন", email: "owner@dhaka-fashion.test", phone: "+8801711000001" },
@@ -88,10 +92,11 @@ const stores: SeedStore[] = [
     ],
   },
   {
-    name: "Rajshahi Mango Co.",
+    nameBn: "রাজশাহী ম্যাঙ্গো কোং",
+    nameEn: "Rajshahi Mango Co.",
     subdomain: "rajshahi-mango",
     language: "en",
-    owner: { name: "Karim Ahmed", phone: "+8801811000002" },
+    owner: { name: "Karim Ahmed", phone: "+8801811000002", locale: "en" },
     categories: [{ name: "Mangoes", slug: "mangoes" }],
     products: [
       {
@@ -122,17 +127,24 @@ async function seedStore(s: SeedStore) {
 
   const store = await db.store.create({
     data: {
-      name: s.name,
+      nameBn: s.nameBn,
+      nameEn: s.nameEn,
       subdomain: s.subdomain,
       status: "ACTIVE",
       settings: {
         create: {
+          // Seeded stores are live: the onboarding wizard is already done.
+          onboardingStep: 4,
+          onboardingCompletedAt: new Date(),
           language: s.language,
+          addressDivision: s.language === "bn" ? "dhaka" : "rajshahi",
+          addressDistrict: s.language === "bn" ? "dhaka" : "rajshahi",
+          addressArea: s.language === "bn" ? "ধানমন্ডি" : "Shaheb Bazar",
           contactPhone: s.owner.phone,
           contactEmail: s.owner.email,
-          address: s.language === "bn" ? "ধানমন্ডি, ঢাকা" : "Shaheb Bazar, Rajshahi",
+          address: s.language === "bn" ? "বাড়ি ১০, রোড ৭" : "House 4, Station Road",
           socialLinks: { facebook: `https://facebook.com/${s.subdomain}` },
-          seo: { title: s.name },
+          seo: { title: s.language === "bn" ? s.nameBn : s.nameEn },
         },
       },
       users: {

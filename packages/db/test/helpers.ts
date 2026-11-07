@@ -6,7 +6,13 @@ import { adminClient } from "../src/admin";
 export async function createTestStore(label: string) {
   const subdomain = `t-${label}-${createId().slice(0, 8)}`;
   return adminClient().store.create({
-    data: { name: `Test ${label}`, subdomain, status: "ACTIVE", settings: { create: {} } },
+    data: {
+      nameBn: `টেস্ট ${label}`,
+      nameEn: `Test ${label}`,
+      subdomain,
+      status: "ACTIVE",
+      settings: { create: {} },
+    },
   });
 }
 

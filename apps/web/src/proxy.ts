@@ -63,7 +63,7 @@ async function refreshForHost(token: string, host: string, rootDomain: string) {
     import("@repo/core/sessions"),
   ]);
   const store = await findStoreByHost(host, rootDomain);
-  return store ? refreshSession(token, store.id) : null;
+  return store && store.status !== "SUSPENDED" ? refreshSession(token, store.id) : null;
 }
 
 export const config = {

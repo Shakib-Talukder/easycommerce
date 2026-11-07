@@ -1,29 +1,21 @@
 import { forStore, formatBDT } from "@repo/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui";
-import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { getStoreForHost } from "@/lib/store";
 
 type ProductImage = { url: string; alt?: string };
 
-export async function generateMetadata({ params }: { params: Promise<{ host: string }> }): Promise<Metadata> {
-  const store = await getStoreForHost((await params).host);
-  return { title: { absolute: store.name } };
-}
-
 export default async function StoreHome({ params }: { params: Promise<{ host: string }> }) {
-  const store = await getStoreForHost((await params).host);
-  const db = forStore(store.id);
-  const [settings, products] = await Promise.all([
-    db.storeSettings.findUnique({ where: { storeId: store.id }, select: { language: true } }),
-    db.product.findMany({
-      where: { status: "ACTIVE", deletedAt: null },
-      orderBy: { createdAt: "desc" },
-      select: { id: true, title: true, slug: true, images: true, basePrice: true, compareAtPrice: true },
-    }),
-  ]);
-  const lang = settings?.language ?? "bn";
+  const { store, settings } = await getStoreForHost((await params).host);
+  // The layout shows "coming soon" / "unavailable" instead.
+  if (store.status !== "ACTIVE") return null;
+  const products = await forStore(store.id).product.findMany({
+    where: { status: "ACTIVE", deletedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, title: true, slug: true, images: true, basePrice: true, compareAtPrice: true },
+  });
+  const lang = settings.language;
 
   if (products.length === 0) {
     return <p className="text-neutral-500">{lang === "bn" ? "এখনো কোনো পণ্য নেই।" : "No products yet."}</p>;

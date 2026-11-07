@@ -50,7 +50,7 @@ describe("CHECK constraints", () => {
   it("rejects an invalid subdomain at the database level", async () => {
     const { adminClient } = await import("../src/admin");
     await expect(
-      adminClient().store.create({ data: { name: "Bad", subdomain: "Bad_Name" } }),
+      adminClient().store.create({ data: { nameBn: "Bad", nameEn: "Bad", subdomain: "Bad_Name" } }),
     ).rejects.toThrow(/stores_subdomain_format_chk/);
   });
 });

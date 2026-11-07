@@ -5,6 +5,7 @@ export { parseHost, RESERVED_SUBDOMAINS } from "./host";
 export type { HostTarget } from "./host";
 export { disconnectAll } from "./client";
 export * from "./money";
+export { storeDisplayName, type Locale } from "./display";
 
 export { Prisma, PrismaClient } from "./generated/prisma/client";
 export * from "./generated/prisma/enums";

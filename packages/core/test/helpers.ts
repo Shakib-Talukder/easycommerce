@@ -25,7 +25,8 @@ export function captureCodes() {
 export async function createTestStore(label: string) {
   return adminClient().store.create({
     data: {
-      name: `Test ${label}`,
+      nameBn: `টেস্ট ${label}`,
+      nameEn: `Test ${label}`,
       subdomain: `t-${label}-${createId().slice(0, 8)}`,
       status: "ACTIVE",
       settings: { create: { language: "en" } },

@@ -80,6 +80,14 @@ enum PaymentStatus {
   @@map("payment_status")
 }
 
+enum WalletAccountType {
+  PERSONAL
+  AGENT
+  MERCHANT
+
+  @@map("wallet_account_type")
+}
+
 enum OtpPurpose {
   LOGIN
   INVITE
@@ -93,7 +101,9 @@ enum OtpPurpose {
 
 model Store {
   id           String      @id @default(cuid(2))
-  name         String
+  /// Display names; pick one with storeDisplayName(store, locale).
+  nameBn       String      @map("name_bn")
+  nameEn       String      @map("name_en")
   /// lowercase, 3–30 chars, [a-z0-9-]; enforced by zod + CHECK constraint
   subdomain    String      @unique @db.VarChar(30)
   customDomain String?     @unique @map("custom_domain") @db.Citext
@@ -128,6 +138,8 @@ model User {
   /// E.164, e.g. +8801XXXXXXXXX
   phone       String?   @db.VarChar(16)
   role        UserRole  @default(STAFF)
+  /// Admin UI language.
+  locale      Language  @default(bn)
   isActive    Boolean   @default(true) @map("is_active")
   lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -143,26 +155,56 @@ model User {
 }
 
 model StoreSettings {
-  id                         String   @id @default(cuid(2))
-  storeId                    String   @unique @map("store_id")
-  logoUrl                    String?  @map("logo_url")
-  primaryColor               String   @default("#16a34a") @map("primary_color") @db.VarChar(9)
-  currency                   String   @default("BDT") @db.Char(3)
-  language                   Language @default(bn)
-  contactPhone               String?  @map("contact_phone") @db.VarChar(16)
-  contactEmail               String?  @map("contact_email") @db.Citext
+  id                         String             @id @default(cuid(2))
+  storeId                    String             @unique @map("store_id")
+  /// Wizard steps completed (0–4); the wizard resumes at onboardingStep + 1.
+  onboardingStep             Int                @default(0) @map("onboarding_step") @db.SmallInt
+  onboardingCompletedAt      DateTime?          @map("onboarding_completed_at") @db.Timestamptz(3)
+  taglineBn                  String?            @map("tagline_bn")
+  taglineEn                  String?            @map("tagline_en")
+  /// Object-storage keys (always under stores/<storeId>/) and their public URLs.
+  logoKey                    String?            @map("logo_key")
+  logoUrl                    String?            @map("logo_url")
+  faviconKey                 String?            @map("favicon_key")
+  faviconUrl                 String?            @map("favicon_url")
+  /// #rrggbb
+  primaryColor               String             @default("#16a34a") @map("primary_color") @db.VarChar(7)
+  /// #rrggbb
+  secondaryColor             String?            @map("secondary_color") @db.VarChar(7)
+  currency                   String             @default("BDT") @db.Char(3)
+  /// Storefront default language.
+  language                   Language           @default(bn)
+  contactPhone               String?            @map("contact_phone") @db.VarChar(16)
+  contactEmail               String?            @map("contact_email") @db.Citext
+  /// Division and district ids from packages/core/data/bd-locations.json.
+  addressDivision            String?            @map("address_division")
+  addressDistrict            String?            @map("address_district")
+  addressArea                String?            @map("address_area")
+  /// Street address line.
   address                    String?
+  codEnabled                 Boolean            @default(true) @map("cod_enabled")
+  bkashEnabled               Boolean            @default(false) @map("bkash_enabled")
+  /// E.164
+  bkashNumber                String?            @map("bkash_number") @db.VarChar(16)
+  bkashAccountType           WalletAccountType? @map("bkash_account_type")
+  nagadEnabled               Boolean            @default(false) @map("nagad_enabled")
+  /// E.164
+  nagadNumber                String?            @map("nagad_number") @db.VarChar(16)
+  nagadAccountType           WalletAccountType? @map("nagad_account_type")
   /// poisha
-  deliveryChargeInsideDhaka  Int      @default(6000) @map("delivery_charge_inside_dhaka")
+  deliveryChargeInsideDhaka  Int                @default(6000) @map("delivery_charge_inside_dhaka")
   /// poisha
-  deliveryChargeOutsideDhaka Int      @default(12000) @map("delivery_charge_outside_dhaka")
-  codEnabled                 Boolean  @default(true) @map("cod_enabled")
-  socialLinks                Json     @default("{}") @map("social_links")
-  seo                        Json     @default("{}")
+  deliveryChargeOutsideDhaka Int                @default(12000) @map("delivery_charge_outside_dhaka")
+  /// poisha; orders at or above this subtotal ship free
+  freeDeliveryThreshold      Int?               @map("free_delivery_threshold")
+  deliveryDaysInsideDhaka    Int?               @map("delivery_days_inside_dhaka") @db.SmallInt
+  deliveryDaysOutsideDhaka   Int?               @map("delivery_days_outside_dhaka") @db.SmallInt
+  socialLinks                Json               @default("{}") @map("social_links")
+  seo                        Json               @default("{}")
   /// Last issued order number; incremented atomically by nextOrderNumber().
-  orderSeq                   Int      @default(1000) @map("order_seq")
-  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orderSeq                   Int                @default(1000) @map("order_seq")
+  createdAt                  DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 

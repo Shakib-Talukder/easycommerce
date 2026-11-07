@@ -1,4 +1,4 @@
-import { forStore, withStore, type TenantTx } from "@repo/db";
+import { forStore, storeDisplayName, withStore, type StoreStatus, type TenantTx } from "@repo/db";
 import type { Identifier } from "@repo/db/validation";
 import { otpTtlSeconds } from "../env";
 import { sendOtpMessage } from "../notify";
@@ -9,7 +9,18 @@ import type { Role } from "./jwt";
 /** Invites stay valid longer than login codes: staff may not see them right away. */
 export const INVITE_TTL_SECONDS = 24 * 60 * 60;
 
-export type StoreContext = { id: string; name: string; language: "bn" | "en" };
+export type StoreContext = {
+  id: string;
+  subdomain: string;
+  nameBn: string;
+  nameEn: string;
+  /** Display name in the store's language (used in OTP messages). */
+  name: string;
+  /** Storefront default language. */
+  language: "bn" | "en";
+  status: StoreStatus;
+  onboardingCompleted: boolean;
+};
 
 export type SendCodeResult = { ok: true } | { ok: false; error: "RATE_LIMITED" };
 
@@ -138,11 +149,27 @@ export async function verifyLoginCode(input: {
   });
 }
 
-/** Convenience for pages that need the store's display name and language. */
-export async function loadStoreContext(store: { id: string; name: string }): Promise<StoreContext> {
+/** Store row + the settings every admin page needs (language, onboarding state). */
+export async function loadStoreContext(store: {
+  id: string;
+  subdomain: string;
+  nameBn: string;
+  nameEn: string;
+  status: StoreStatus;
+}): Promise<StoreContext> {
   const settings = await forStore(store.id).storeSettings.findUnique({
     where: { storeId: store.id },
-    select: { language: true },
+    select: { language: true, onboardingCompletedAt: true },
   });
-  return { id: store.id, name: store.name, language: settings?.language ?? "bn" };
+  const language = settings?.language ?? "bn";
+  return {
+    id: store.id,
+    subdomain: store.subdomain,
+    nameBn: store.nameBn,
+    nameEn: store.nameEn,
+    name: storeDisplayName(store, language),
+    language,
+    status: store.status,
+    onboardingCompleted: Boolean(settings?.onboardingCompletedAt),
+  };
 }

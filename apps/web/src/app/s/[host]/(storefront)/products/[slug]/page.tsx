@@ -9,28 +9,29 @@ type Props = { params: Promise<{ host: string; slug: string }> };
 type ProductImage = { url: string; alt?: string };
 
 async function getProduct(host: string, slug: string) {
-  const store = await getStoreForHost(host);
-  const db = forStore(store.id);
-  const [settings, product] = await Promise.all([
-    db.storeSettings.findUnique({ where: { storeId: store.id }, select: { language: true } }),
-    db.product.findFirst({
-      where: { slug, status: "ACTIVE", deletedAt: null },
-      include: { variants: { where: { deletedAt: null }, orderBy: { price: "asc" } } },
-    }),
-  ]);
+  const { store, settings } = await getStoreForHost(host);
+  // Not live: the layout shows "coming soon" / "unavailable" instead.
+  if (store.status !== "ACTIVE") return null;
+  const product = await forStore(store.id).product.findFirst({
+    where: { slug, status: "ACTIVE", deletedAt: null },
+    include: { variants: { where: { deletedAt: null }, orderBy: { price: "asc" } } },
+  });
   if (!product) notFound();
-  return { product, lang: settings?.language ?? "bn" };
+  return { product, lang: settings.language };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { host, slug } = await params;
-  const { product } = await getProduct(host, slug);
-  return { title: product.title, description: product.description ?? undefined };
+  const found = await getProduct(host, slug);
+  if (!found) return {};
+  return { title: found.product.title, description: found.product.description ?? undefined };
 }
 
 export default async function ProductPage({ params }: Props) {
   const { host, slug } = await params;
-  const { product, lang } = await getProduct(host, slug);
+  const found = await getProduct(host, slug);
+  if (!found) return null;
+  const { product, lang } = found;
   const image = (product.images as ProductImage[])[0];
 
   return (

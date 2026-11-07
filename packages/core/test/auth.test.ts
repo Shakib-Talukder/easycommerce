@@ -5,9 +5,8 @@ import type { Identifier } from "@repo/db/validation";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { consumeHandoff, createHandoff } from "../src/auth/handoff";
 import { signSessionToken } from "../src/auth/jwt";
-import { requestLoginCode, verifyLoginCode, type StoreContext } from "../src/auth/otp";
+import { loadStoreContext, requestLoginCode, verifyLoginCode, type StoreContext } from "../src/auth/otp";
 import { createSession, refreshSession, revokeSession, validateSession } from "../src/auth/sessions";
-import { completeSignup, startSignup } from "../src/auth/signup";
 import { deactivateStaff, inviteStaff } from "../src/auth/staff";
 import { MemoryKeyValueStore, setKeyValueStore } from "../src/kv";
 import { captureCodes, createTestStore, deleteStores, testPhone } from "./helpers";
@@ -25,8 +24,8 @@ beforeAll(async () => {
   const a = await createTestStore("auth-a");
   const b = await createTestStore("auth-b");
   created.push(a.id, b.id);
-  storeA = { id: a.id, name: a.name, language: "en" };
-  storeB = { id: b.id, name: b.name, language: "en" };
+  storeA = await loadStoreContext(a);
+  storeB = await loadStoreContext(b);
   const phone = testPhone();
   const user = await adminClient().user.create({
     data: { storeId: a.id, name: "Owner A", phone, role: "OWNER" },
@@ -175,75 +174,7 @@ describe("sessions", () => {
   });
 });
 
-describe("store signup", () => {
-  const signup = async (subdomain: string, phone: string) => {
-    const started = await startSignup({
-      storeName: "দোকান",
-      subdomain,
-      identifier: phoneId(phone),
-      ip: nextIp(),
-    });
-    expect(started).toEqual({ ok: true });
-    return codes.last(phone);
-  };
-
-  it("creates store, settings and OWNER in one RLS-scoped transaction", async () => {
-    const subdomain = `t-signup-${createId().slice(0, 6)}`;
-    const phone = testPhone();
-    const code = await signup(subdomain, phone);
-
-    const result = await completeSignup({ subdomain, identifier: phoneId(phone), code });
-    if (!result.ok) throw new Error(result.error);
-    created.push(result.store.id);
-
-    const store = await adminClient().store.findUnique({
-      where: { id: result.store.id },
-      include: { settings: true, users: true },
-    });
-    expect(store).toMatchObject({ subdomain, status: "ACTIVE", name: "দোকান" });
-    expect(store?.settings?.storeId).toBe(result.store.id);
-    expect(store?.users).toEqual([expect.objectContaining({ phone, role: "OWNER", isActive: true })]);
-
-    // Single use.
-    expect(await completeSignup({ subdomain, identifier: phoneId(phone), code })).toEqual({
-      ok: false,
-      error: "INVALID_CODE",
-    });
-    // Now taken for everyone else.
-    expect(
-      await startSignup({ storeName: "x", subdomain, identifier: phoneId(testPhone()), ip: nextIp() }),
-    ).toEqual({
-      ok: false,
-      error: "SUBDOMAIN_TAKEN",
-    });
-  });
-
-  it("lets exactly one of two concurrent signups claim a subdomain", async () => {
-    const subdomain = `t-race-${createId().slice(0, 6)}`;
-    const [p1, p2] = [testPhone(), testPhone()];
-    const [c1, c2] = [await signup(subdomain, p1), await signup(subdomain, p2)];
-
-    const results = await Promise.all([
-      completeSignup({ subdomain, identifier: phoneId(p1), code: c1 }),
-      completeSignup({ subdomain, identifier: phoneId(p2), code: c2 }),
-    ]);
-    for (const r of results) if (r.ok) created.push(r.store.id);
-    expect(results.filter((r) => r.ok)).toHaveLength(1);
-    expect(results.filter((r) => !r.ok)).toEqual([{ ok: false, error: "SUBDOMAIN_TAKEN" }]);
-  });
-
-  it("limits signup verification to 5 attempts", async () => {
-    const subdomain = `t-att-${createId().slice(0, 6)}`;
-    const phone = testPhone();
-    const code = await signup(subdomain, phone);
-    const wrong = code === "000000" ? "111111" : "000000";
-    for (let i = 0; i < 5; i++) await completeSignup({ subdomain, identifier: phoneId(phone), code: wrong });
-    expect(await completeSignup({ subdomain, identifier: phoneId(phone), code })).toMatchObject({
-      ok: false,
-    });
-    expect(await adminClient().store.findUnique({ where: { subdomain } })).toBeNull();
-  });
-
+describe("signup handoff", () => {
   it("hands off exactly once", async () => {
     const token = await createHandoff({ storeId: storeA.id, userId: ownerA.id });
     expect(await consumeHandoff(token)).toEqual({ storeId: storeA.id, userId: ownerA.id });

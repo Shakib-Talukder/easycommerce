@@ -41,6 +41,13 @@ const dict = {
   "settings.cod": { bn: "ক্যাশ অন ডেলিভারি চালু", en: "Cash on delivery enabled" },
   "settings.save": { bn: "সংরক্ষণ করুন", en: "Save" },
   "settings.saved": { bn: "সংরক্ষিত হয়েছে।", en: "Saved." },
+  "store.cod": { bn: "ক্যাশ অন ডেলিভারি", en: "Cash on delivery" },
+  "store.comingSoon": { bn: "শীঘ্রই আসছে", en: "Coming soon" },
+  "store.comingSoonBody": {
+    bn: "দোকানটি তৈরি হচ্ছে। শীঘ্রই আবার দেখুন।",
+    en: "This store is being set up. Please check back soon.",
+  },
+  "store.unavailable": { bn: "দোকানটি এখন পাওয়া যাচ্ছে না", en: "Store unavailable" },
   "role.OWNER": { bn: "মালিক", en: "Owner" },
   "role.STAFF": { bn: "স্টাফ", en: "Staff" },
   "error.RATE_LIMITED": {

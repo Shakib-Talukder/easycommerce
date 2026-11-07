@@ -14,10 +14,14 @@ import { forbidden, notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { requestHost } from "./request";
 
-/** The store for the current Host header (404 on the root domain or an unknown host). */
+/**
+ * The store for the current Host header. ACTIVE and PENDING stores resolve
+ * (PENDING stores are onboarding); 404 on the root domain, an unknown host or
+ * a SUSPENDED store (the admin layout shows "store unavailable" for those).
+ */
 export const getCurrentStore = cache(async () => {
   const store = await findStoreByHost(await requestHost(), process.env.ROOT_DOMAIN ?? "localhost:3000");
-  if (!store) notFound();
+  if (!store || store.status === "SUSPENDED") notFound();
   return loadStoreContext(store);
 });
 
