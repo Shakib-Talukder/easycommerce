@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { RESERVED_SUBDOMAINS } from "./host";
+import { normalizeDigits } from "./money";
 
 /*
  * Issue messages are error codes (e.g. "INVALID_PHONE"), not prose. Apps map
@@ -49,7 +50,7 @@ const BD_MOBILE_E164 = /^\+8801[3-9]\d{8}$/;
  * and parentheses ignored). Operator prefixes 013–019 only.
  */
 export function normalizeBdPhone(input: string): string | null {
-  const s = input.replace(/[\s\-()]/g, "");
+  const s = normalizeDigits(input).replace(/[\s\-()]/g, "");
   const e164 = s.startsWith("+") ? s : s.startsWith("880") ? `+${s}` : s.startsWith("0") ? `+88${s}` : s;
   return BD_MOBILE_E164.test(e164) ? e164 : null;
 }

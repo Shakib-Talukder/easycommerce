@@ -3,9 +3,14 @@
  * through floating-point arithmetic.
  */
 
-/** "1,250.5" | "1250" | 1250.5 -> 125050. Throws on more than 2 decimals or negatives. */
+/** Bangla digits (০–৯) to ASCII, so input typed on a Bangla keyboard parses. */
+export function normalizeDigits(input: string): string {
+  return input.replace(/[০-৯]/g, (d) => String(d.charCodeAt(0) - 0x09e6));
+}
+
+/** "1,250.5" | "১২৫০" | 1250.5 -> 125050. Throws on more than 2 decimals or negatives. */
 export function takaToPoisha(input: string | number): number {
-  const raw = (typeof input === "number" ? input.toString() : input).replace(/[,\s৳]/g, "");
+  const raw = normalizeDigits(typeof input === "number" ? input.toString() : input).replace(/[,\s৳]/g, "");
   const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(raw);
   if (!match) throw new Error(`Invalid taka amount: ${String(input)}`);
   const whole = Number(match[1]);
