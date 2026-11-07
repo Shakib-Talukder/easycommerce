@@ -1,36 +1,30 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui";
-import { SignupForm } from "@/components/signup-forms";
+import { getTranslations } from "next-intl/server";
+import Link from "next/link";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 
 const rootDomain = process.env.ROOT_DOMAIN ?? "localhost:3000";
 
-export default function PlatformHome() {
+export default async function PlatformHome() {
+  const t = await getTranslations("common");
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-16">
-      <header className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-[var(--brand)]">EasyCommerce</p>
-        <h1 className="text-4xl font-bold tracking-tight">আপনার অনলাইন দোকান, কয়েক মিনিটে</h1>
-        <p className="text-lg text-neutral-600 dark:text-neutral-400">
-          Launch a storefront for your business with cash on delivery, bKash and Bangla support built in.
-        </p>
+    <main className="mx-auto flex max-w-3xl flex-col gap-10 px-4 py-10">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-[var(--brand)]">{t("appName")}</p>
+        <LocaleSwitcher />
+      </div>
+      <header className="flex flex-col gap-4">
+        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{t("heroTitle")}</h1>
+        <p className="text-lg text-neutral-600 dark:text-neutral-400">{t("heroBody")}</p>
+        <Link
+          href="/signup"
+          className="inline-flex h-12 w-full items-center justify-center rounded-md bg-[var(--brand)] px-6 font-medium text-white hover:brightness-110 sm:w-fit"
+        >
+          {t("openStore")}
+        </Link>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Open your store / দোকান খুলুন</CardTitle>
-          <CardDescription>
-            Your shop will live at <code>yourname.{rootDomain}</code>. We&apos;ll send a one-time code to
-            confirm.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SignupForm rootDomain={rootDomain} />
-        </CardContent>
-      </Card>
-
       <section className="flex flex-col gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-        <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">
-          Demo stores (after `pnpm db:seed`)
-        </h2>
+        <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">{t("demoStores")}</h2>
         <ul className="list-disc pl-5">
           {["dhaka-fashion", "rajshahi-mango"].map((s) => (
             <li key={s}>

@@ -1,20 +1,24 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui";
+import { readSignupTicket } from "@repo/core";
 import type { Metadata } from "next";
-import { SignupForm } from "@/components/signup-forms";
+import { getTranslations } from "next-intl/server";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { PhoneForm } from "@/components/signup-forms";
+import { SignupShell } from "@/components/signup-shell";
+import { SIGNUP_TICKET_COOKIE } from "@/lib/signup";
 
-export const metadata: Metadata = { title: "Open your store" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("signup"))("metaTitle") };
+}
 
-export default function SignupPage() {
+/** Signup screen 1: BD mobile number. */
+export default async function SignupPhonePage() {
+  // Already verified in this browser: continue with the store details.
+  if (await readSignupTicket((await cookies()).get(SIGNUP_TICKET_COOKIE)?.value)) redirect("/signup/store");
+  const t = await getTranslations("signup");
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle>Open your store / দোকান খুলুন</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <SignupForm rootDomain={process.env.ROOT_DOMAIN ?? "localhost:3000"} />
-        </CardContent>
-      </Card>
-    </main>
+    <SignupShell step={1} title={t("phoneTitle")}>
+      <PhoneForm />
+    </SignupShell>
   );
 }

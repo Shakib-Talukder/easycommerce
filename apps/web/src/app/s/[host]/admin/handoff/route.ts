@@ -22,5 +22,6 @@ export async function GET(request: NextRequest) {
 
   const session = await createSession(store.id, user, { ip: await clientIp(), userAgent: await userAgent() });
   await setSessionCookie(session.token, session.expiresAt);
-  redirect("/admin");
+  // A fresh signup goes straight to the onboarding wizard.
+  redirect(store.onboardingCompleted ? "/admin" : "/admin/onboarding");
 }

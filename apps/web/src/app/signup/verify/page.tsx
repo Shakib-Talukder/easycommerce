@@ -1,37 +1,28 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui";
+import { normalizeBdPhone } from "@repo/db/validation";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SignupVerifyForm } from "@/components/signup-forms";
+import { OtpForm } from "@/components/signup-forms";
+import { SignupShell } from "@/components/signup-shell";
 
-export const metadata: Metadata = { title: "Confirm your store" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("signup"))("otpTitle") };
+}
 
-type Props = { searchParams: Promise<{ subdomain?: string; identifier?: string }> };
+type Props = { searchParams: Promise<{ phone?: string }> };
 
+/** Signup screen 2: the 6-digit code. */
 export default async function SignupVerifyPage({ searchParams }: Props) {
-  const { subdomain, identifier } = await searchParams;
-  if (!subdomain || !identifier) redirect("/signup");
-
+  const phone = normalizeBdPhone((await searchParams).phone ?? "");
+  if (!phone) redirect("/signup");
+  const t = await getTranslations("signup");
   return (
-    <main className="mx-auto flex max-w-md flex-col gap-6 px-4 py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle>Enter your code / কোড দিন</CardTitle>
-          <CardDescription>
-            We sent a 6-digit code to <strong>{identifier}</strong> for{" "}
-            <strong>
-              {subdomain}.{process.env.ROOT_DOMAIN ?? "localhost:3000"}
-            </strong>
-            .
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <SignupVerifyForm subdomain={subdomain} identifier={identifier} />
-          <Link href="/signup" className="text-center text-sm underline">
-            Start over / আবার শুরু করুন
-          </Link>
-        </CardContent>
-      </Card>
-    </main>
+    <SignupShell step={2} title={t("otpTitle")} description={t("otpSent", { phone })}>
+      <OtpForm phone={phone} />
+      <Link href="/signup" className="text-center text-sm underline">
+        {t("changePhone")}
+      </Link>
+    </SignupShell>
   );
 }
