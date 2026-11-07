@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "EasyCommerce",
+    "slug": "easycommerce",
+    "scheme": "easycommerce",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "ios": { "bundleIdentifier": "bd.easycommerce.app", "supportsTablet": true },
+    "android": { "package": "bd.easycommerce.app" }
+  }
+}

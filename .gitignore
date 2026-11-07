@@ -1,0 +1,16 @@
+node_modules
+.env
+.env.local
+.turbo
+.next
+dist
+coverage
+*.tsbuildinfo
+next-env.d.ts
+packages/db/src/generated
+.pgdata
+apps/mobile/.expo
+apps/mobile/ios
+apps/mobile/android
+apps/web/public/uploads
+.env.*.local

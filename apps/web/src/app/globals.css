@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+/* Shared components live in packages/ui; let Tailwind see their classes. */
+@source "../../../../packages/ui/src";
+
+:root {
+  --brand: #16a34a;
+  --background: #fafaf9;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Hind Siliguri / Noto Sans Bengali render Bangla well when installed; system fonts otherwise. */
+  --font-sans: "Hind Siliguri", "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

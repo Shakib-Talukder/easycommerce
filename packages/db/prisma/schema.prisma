@@ -1,0 +1,387 @@
+// Multi-tenant e-commerce schema (PostgreSQL 16).
+//
+// Conventions for every tenant table:
+// - `id` is a cuid2 string; `storeId` maps to `store_id` and is indexed.
+// - Every unique constraint is composite with store_id.
+// - Money is integer poisha (1 BDT = 100 poisha). Never floats.
+// - Row-Level Security policies, CHECK constraints and extensions live in the
+//   migration SQL (Prisma does not model them).
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum StoreStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+
+  @@map("store_status")
+}
+
+enum UserRole {
+  OWNER
+  STAFF
+
+  @@map("user_role")
+}
+
+enum Language {
+  bn
+  en
+
+  @@map("language")
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+
+  @@map("product_status")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+
+  @@map("order_status")
+}
+
+enum PaymentMethod {
+  COD
+  BKASH
+  NAGAD
+  CARD
+
+  @@map("payment_method")
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+
+  @@map("payment_status")
+}
+
+enum OtpPurpose {
+  LOGIN
+  INVITE
+
+  @@map("otp_purpose")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant root
+// ---------------------------------------------------------------------------
+
+model Store {
+  id           String      @id @default(cuid(2))
+  name         String
+  /// lowercase, 3–30 chars, [a-z0-9-]; enforced by zod + CHECK constraint
+  subdomain    String      @unique @db.VarChar(30)
+  customDomain String?     @unique @map("custom_domain") @db.Citext
+  status       StoreStatus @default(PENDING)
+  plan         String      @default("free")
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  settings   StoreSettings?
+  users      User[]
+  categories Category[]
+  products   Product[]
+  variants   Variant[]
+  customers  Customer[]
+  orders     Order[]
+  orderItems OrderItem[]
+  otpCodes   OtpCode[]
+  sessions   Session[]
+
+  @@map("stores")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant tables
+// ---------------------------------------------------------------------------
+
+model User {
+  id          String    @id @default(cuid(2))
+  storeId     String    @map("store_id")
+  name        String
+  email       String?   @db.Citext
+  /// E.164, e.g. +8801XXXXXXXXX
+  phone       String?   @db.VarChar(16)
+  role        UserRole  @default(STAFF)
+  isActive    Boolean   @default(true) @map("is_active")
+  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([storeId, email])
+  @@unique([storeId, phone])
+  @@index([storeId])
+  @@map("users")
+}
+
+model StoreSettings {
+  id                         String   @id @default(cuid(2))
+  storeId                    String   @unique @map("store_id")
+  logoUrl                    String?  @map("logo_url")
+  primaryColor               String   @default("#16a34a") @map("primary_color") @db.VarChar(9)
+  currency                   String   @default("BDT") @db.Char(3)
+  language                   Language @default(bn)
+  contactPhone               String?  @map("contact_phone") @db.VarChar(16)
+  contactEmail               String?  @map("contact_email") @db.Citext
+  address                    String?
+  /// poisha
+  deliveryChargeInsideDhaka  Int      @default(6000) @map("delivery_charge_inside_dhaka")
+  /// poisha
+  deliveryChargeOutsideDhaka Int      @default(12000) @map("delivery_charge_outside_dhaka")
+  codEnabled                 Boolean  @default(true) @map("cod_enabled")
+  socialLinks                Json     @default("{}") @map("social_links")
+  seo                        Json     @default("{}")
+  /// Last issued order number; incremented atomically by nextOrderNumber().
+  orderSeq                   Int      @default(1000) @map("order_seq")
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@map("store_settings")
+}
+
+model Category {
+  id        String    @id @default(cuid(2))
+  storeId   String    @map("store_id")
+  name      String
+  slug      String
+  parentId  String?   @map("parent_id")
+  sortOrder Int       @default(0) @map("sort_order")
+  imageUrl  String?   @map("image_url")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  store    Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@unique([storeId, slug], map: "categories_store_id_slug_key", where: raw("deleted_at IS NULL"))
+  @@index([storeId])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id             String        @id @default(cuid(2))
+  storeId        String        @map("store_id")
+  categoryId     String?       @map("category_id")
+  title          String
+  slug           String
+  description    String?       @db.Text
+  status         ProductStatus @default(DRAFT)
+  /// [{ url, alt? }]
+  images         Json          @default("[]")
+  /// poisha
+  basePrice      Int           @map("base_price")
+  /// poisha
+  compareAtPrice Int?          @map("compare_at_price")
+  hasVariants    Boolean       @default(false) @map("has_variants")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category   Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  variants   Variant[]
+  orderItems OrderItem[]
+
+  @@unique([storeId, slug], map: "products_store_id_slug_key", where: raw("deleted_at IS NULL"))
+  @@index([storeId])
+  @@index([storeId, status])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model Variant {
+  id             String    @id @default(cuid(2))
+  storeId        String    @map("store_id")
+  productId      String    @map("product_id")
+  sku            String
+  title          String
+  /// e.g. { "size": "M", "color": "Red" }
+  options        Json      @default("{}")
+  /// poisha
+  price          Int
+  /// poisha
+  compareAtPrice Int?      @map("compare_at_price")
+  stock          Int       @default(0)
+  weightGrams    Int?      @map("weight_grams")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([storeId, sku], map: "variants_store_id_sku_key", where: raw("deleted_at IS NULL"))
+  @@index([storeId])
+  @@index([productId])
+  @@map("variants")
+}
+
+model Customer {
+  id          String    @id @default(cuid(2))
+  storeId     String    @map("store_id")
+  name        String
+  /// E.164
+  phone       String    @db.VarChar(16)
+  email       String?   @db.Citext
+  division    String?
+  district    String?
+  area        String?
+  addressLine String?   @map("address_line")
+  totalOrders Int       @default(0) @map("total_orders")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(3)
+
+  store  Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([storeId, phone])
+  @@index([storeId])
+  @@map("customers")
+}
+
+model Order {
+  id              String        @id @default(cuid(2))
+  storeId         String        @map("store_id")
+  customerId      String?       @map("customer_id")
+  /// Human-readable, sequential per store (e.g. "1001").
+  orderNumber     String        @map("order_number") @db.VarChar(20)
+  status          OrderStatus   @default(PENDING)
+  paymentMethod   PaymentMethod @default(COD) @map("payment_method")
+  paymentStatus   PaymentStatus @default(UNPAID) @map("payment_status")
+  currency        String        @default("BDT") @db.Char(3)
+  /// poisha
+  subtotal        Int
+  /// poisha
+  deliveryCharge  Int           @default(0) @map("delivery_charge")
+  /// poisha
+  discount        Int           @default(0)
+  /// poisha
+  total           Int
+  /// Snapshot at order time: { name, phone, division, district, area, line }
+  shippingAddress Json          @map("shipping_address")
+  note            String?
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store    Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items    OrderItem[]
+
+  @@unique([storeId, orderNumber])
+  @@index([storeId])
+  @@index([storeId, status])
+  @@index([customerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid(2))
+  storeId   String   @map("store_id")
+  orderId   String   @map("order_id")
+  productId String?  @map("product_id")
+  variantId String?  @map("variant_id")
+  /// Snapshots so history survives product edits/deletes.
+  title     String
+  sku       String?
+  options   Json     @default("{}")
+  /// poisha
+  unitPrice Int      @map("unit_price")
+  quantity  Int
+  /// poisha
+  lineTotal Int      @map("line_total")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  variant Variant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+/// One-time codes for merchant login and staff invites. Only the HMAC of the
+/// code is stored. Store signup codes live in the KeyValueStore instead,
+/// because the store does not exist yet.
+model OtpCode {
+  id         String     @id @default(cuid(2))
+  storeId    String     @map("store_id")
+  /// Normalised email (lowercase) or E.164 phone.
+  identifier String
+  codeHash   String     @map("code_hash")
+  purpose    OtpPurpose
+  expiresAt  DateTime   @map("expires_at") @db.Timestamptz(3)
+  attempts   Int        @default(0)
+  consumedAt DateTime?  @map("consumed_at") @db.Timestamptz(3)
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([storeId, identifier, purpose])
+  @@map("otp_codes")
+}
+
+/// Server-side record for each session JWT (`sid` claim = id). Revoking sets revokedAt.
+model Session {
+  id         String    @id @default(cuid(2))
+  storeId    String    @map("store_id")
+  userId     String    @map("user_id")
+  /// sha256 of the most recently issued JWT for this session.
+  tokenHash  String    @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  ip         String?
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  lastUsedAt DateTime  @default(now()) @map("last_used_at") @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([storeId, userId])
+  @@map("sessions")
+}
