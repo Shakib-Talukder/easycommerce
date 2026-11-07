@@ -8,11 +8,13 @@ by an Expo app later, from one codebase and one PostgreSQL database.
 
 ```
 apps/
-  web/        Next.js 16 (App Router, src/, Tailwind 4). Storefront, signup, merchant admin
+  web/        Next.js 16 (App Router, src/, Tailwind 4, next-intl). Storefront, signup, onboarding, merchant admin
+              messages/{bn,en}.json   all UI text
   mobile/     Expo SDK 58 + Expo Router (scaffold)
 packages/
   db/         Prisma 7 schema, migrations, seed, tenant helpers (forStore, withStore), zod, money
-  core/       Server-only services: KV/rate limiting (Redis or memory), email/SMS, OTP, sessions, signup, staff
+  core/       Server-only services: KV/rate limiting (Redis or memory), email/SMS, OTP, sessions, signup, staff,
+              store settings + onboarding, object storage, image pipeline. data/bd-locations.json (8 divisions, 64 districts)
   ui/         Shared React components (Button, Input, Label, Card) styled with Tailwind
   config/     Shared tsconfig / eslint / prettier presets
 infra/postgres/init/   Roles + database, run once at cluster creation
@@ -53,15 +55,16 @@ server console (`[sms:console] …` or `[email:console] …`), or shows up in Ma
 | `dhaka-fashion`  | STAFF | `01711000005`                               |
 | `rajshahi-mango` | OWNER | `01811000002`                               |
 
-New stores: sign up at http://localhost:3000 (or `/signup`).
+New stores: sign up at http://localhost:3000/signup (phone-first, see [Store signup and onboarding](#store-signup-and-onboarding)).
 
 ### Running without Docker
 
-| Service    | Fallback                                                                                                                                                                                                                           |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PostgreSQL | `pnpm db:up:local`: real PostgreSQL 16 from npm binaries (data in `./.pgdata`), same roles as docker compose.                                                                                                                      |
-| Redis      | `next dev` falls back to an in-memory store (one warning). `next start` runs with `NODE_ENV=production`, which refuses that fallback, so run `pnpm redis:up:local` (a small RESP server that implements only the commands we use). |
-| SMTP       | In development an unreachable SMTP server makes emails print to the console. In production it is an error. Phone logins (console SMS) need no setup.                                                                               |
+| Service    | Fallback                                                                                                                                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PostgreSQL | `pnpm db:up:local`: real PostgreSQL 16 from npm binaries (data in `./.pgdata`), same roles as docker compose.                                                                                                                                                                        |
+| Redis      | `next dev` falls back to an in-memory store (one warning). `next start` runs with `NODE_ENV=production`, which refuses that fallback, so run a real Redis (e.g. in WSL, bound to 127.0.0.1) or `pnpm redis:up:local` (a small RESP server that implements only the commands we use). |
+| Storage    | `STORAGE_PROVIDER=local` writes uploads to `apps/web/public/uploads`, served by `/api/uploads/…`. Allowed under `next start` only while `ROOT_DOMAIN` is a localhost domain.                                                                                                         |
+| SMTP       | In development an unreachable SMTP server makes emails print to the console. In production it is an error. Phone logins (console SMS) need no setup.                                                                                                                                 |
 
 Keep each `*:up:local` command running in its own terminal.
 
@@ -157,8 +160,11 @@ Grants come from the default privileges set in the first migration.
 
 - root domain (or `www.`, or a reserved subdomain such as `admin`): platform pages
 - `<sub>.<ROOT_DOMAIN>` or any other host: rewritten to `/s/<host>/...`, where the
-  page resolves the store with `findStoreByHost` (admin role) and queries through
-  `forStore`. Unknown or non-ACTIVE stores 404. Direct requests to `/s/*` 404.
+  page resolves the store with `findStoreByHost` (admin role, any status) and queries
+  through `forStore`. Unknown hosts 404. Direct requests to `/s/*` 404.
+- Store status: **ACTIVE** is live. **PENDING** (new signup, onboarding not finished):
+  every storefront path renders a bilingual "Coming soon" page (HTTP 200, `noindex`),
+  while `/admin` works normally. **SUSPENDED**: storefront and admin show "Store unavailable".
 - `/admin/*` (except `login`, `verify`, `handoff`) requires a session; see below.
 
 ## Merchant auth
@@ -167,21 +173,15 @@ Passwordless: email or BD mobile number + 6-digit OTP. Roles are `OWNER` and `ST
 
 ### Flows
 
-1. **Store signup** (root domain, `/` or `/signup`): store name, subdomain, owner email or
-   phone. The subdomain is checked for format, `RESERVED_SUBDOMAINS` and availability
-   (availability uses `app_admin`, the only admin-role call in signup). The OTP lives in the
-   KeyValueStore (`signup:<subdomain>:<identifier>`), because the store doesn't exist yet.
-   On verify, the app generates the store id and creates store + settings + OWNER in **one**
-   `withStore(newId, tx => …)` transaction as `app_user`, so RLS `WITH CHECK` applies. If two
-   signups race for a subdomain, the unique index rejects the loser, who sees "That subdomain
-   is already taken". The browser is then sent to
-   `http://<subdomain>.<ROOT_DOMAIN>/admin/handoff?t=<token>`. That one-time token (60 s, in the
-   KeyValueStore) is exchanged there for a session cookie on the store's own host.
+1. **Store signup** (root domain, phone only): see
+   [Store signup and onboarding](#store-signup-and-onboarding).
 2. **Login** (`/admin/login` → `/admin/verify` on the store host): OTP stored hashed in
    `otp_codes` via `forStore`. Unknown identifiers get the same response, and no message is sent.
 3. **Staff invite** (OWNER, `/admin/staff`): creates an inactive STAFF user and an `INVITE`
    OTP (valid 24 h). The staff member activates by logging in with it. Deactivating a staff
    member revokes their sessions and any pending invite.
+
+Email login for existing users still works; only signup is phone-only.
 
 ### OTP rules
 
@@ -223,8 +223,135 @@ Passwordless: email or BD mobile number + 6-digit OTP. Roles are `OWNER` and `ST
 | `OTP_TTL_SECONDS`         | Login/signup code lifetime (default 300)                                                 |
 | `SMTP_HOST` / `SMTP_PORT` | Mailpit `localhost:1025` in dev; `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`               |
 | `SMS_PROVIDER`            | `console` (default, prints to log) or `bulksmsbd` (stub; `SMS_API_KEY`, `SMS_SENDER_ID`) |
+| `STORAGE_PROVIDER`        | `local` (dev disk) or `s3` (R2 / Spaces); see [Object storage](#object-storage)          |
+| `LOCAL_UPLOAD_DIR`        | Optional. Default `apps/web/public/uploads`                                              |
 
 `pnpm test` covers OTP generation, verification, expiry, the attempt limit and single use;
 rate limits; phone normalisation; JWT tampering, expiry and cross-store rejection; revoked
-sessions; the signup transaction under RLS; and the subdomain race. Day 1 decisions and gaps
+sessions; phone-first signup (tickets, limits, the subdomain race); onboarding validation and
+progress; uploads; i18n key parity and locale resolution. Day 1 decisions and gaps
 are in [docs/day-1-notes.md](docs/day-1-notes.md).
+
+## Store signup and onboarding
+
+### Signup (root domain, `/signup`, bn/en switch, default bn)
+
+1. **Phone**: BD mobile only (`01XXXXXXXXX`, `8801…`, `+8801…`, Bangla digits accepted), normalised
+   to E.164. An OTP goes out via the SmsProvider. Limits: 3 sends per phone per 15 min, 10 per IP
+   per hour, and **at most 3 new stores per phone per 24 h** (checked at send time and, exactly,
+   inside the creation transaction under a per-phone advisory lock, using the
+   `signup_store_count()` SECURITY DEFINER function so `app_user` never sees other tenants' rows).
+2. **Code**: six boxes (auto-advance, paste, Bangla digits), resend with a 60 s countdown. The
+   code lives in the KeyValueStore (5 attempts, single use). Success issues a **signup ticket**: a
+   random token in the KV store (30 min, bound to the phone), set as the httpOnly cookie
+   `ec_signup` on the root host. Screen 3 requires a valid ticket.
+3. **Store details**: name in Bangla and English (both required), subdomain auto-suggested from
+   the English name, with a live (400 ms debounced) check against
+   `GET /api/subdomain-check?s=…` → `{ available, reason: FORMAT | RESERVED | TAKEN | null,
+suggestions }` (60 requests per IP per minute), and a `https://<sub>.<ROOT_DOMAIN>` preview.
+   On submit the server re-checks, then creates store (**PENDING**) + settings
+   (`onboarding_step` 0) + OWNER (phone, `locale` bn) in **one** `withStore(newId)` transaction and
+   consumes the ticket. A lost subdomain race returns "taken" with fresh suggestions, and the
+   ticket stays usable. The browser is handed off (one-time 60 s token) to
+   `<sub>.<ROOT_DOMAIN>/admin/handoff`, which sets the session cookie and lands on
+   `/admin/onboarding`.
+
+### Onboarding wizard (`/admin/onboarding`, OWNER only)
+
+While `onboarding_completed_at` is null, every `/admin` page redirects the OWNER to the
+wizard, and STAFF see "store setup in progress". Four steps, each saved on **Next**;
+`onboarding_step` records progress, so leaving and logging in again resumes at the next step:
+
+1. Store identity: names, optional taglines, contact phone/email, division → district (static
+   `packages/core/data/bd-locations.json`) → area, storefront language.
+2. Logo and colours (skippable): upload with instant preview, primary/secondary colours with 8
+   palettes, a colour suggested from the logo's dominant colour, a live storefront preview,
+   and a WCAG AA contrast warning (doesn't block).
+3. Payments: COD (default on), bKash and Nagad (number + Personal/Agent/Merchant). At least one
+   method is required, and a number is required when a wallet is on (zod, plus DB CHECKs).
+4. Delivery: inside/outside Dhaka in taka (defaults ৳60 / ৳120), optional free-delivery
+   threshold and delivery days.
+
+The review screen has an **Edit** link per step. **Launch store** sets
+`onboarding_completed_at`, moves the store to ACTIVE and shows the URL with a copy button.
+`/admin/settings` (OWNER) uses the same section components and validation as tabs (Identity,
+Branding, Payments, Delivery), with a save toast and an unsaved-changes warning. The
+subdomain is read-only.
+
+## Internationalisation (next-intl)
+
+- No locale-prefixed routes: tenancy already uses the host. `proxy.ts` tags each request
+  with a surface (`x-ec-surface`: root, admin or storefront), and
+  `apps/web/src/i18n/request.ts` resolves the locale:
+  - **admin**: the logged-in user's `users.locale` → `ec_locale` cookie → bn
+  - **storefront**: `store_settings.language`
+  - **root domain**: `ec_locale` cookie → bn
+- The বাংলা / English toggle is a plain form. In the admin it saves `users.locale` and the
+  cookie; elsewhere it only sets the cookie.
+- Numbers and dates use next-intl formatters (Bangla digits for bn); money uses `formatBDT`.
+  Fonts: Inter + Noto Sans Bengali via `next/font` (self-hosted, metric-matched fallbacks).
+
+**Adding a string:** add the key to **both** `apps/web/messages/bn.json` and `en.json` in the
+right namespace (`common`, `auth`, `signup`, `onboarding`, `settings`, `dashboard`, `staff`,
+`storefront`, `errors`). Then use `useTranslations("ns")` (client) or
+`getTranslations("ns")` (server). Keys are type-checked against `en.json`.
+`pnpm --filter @repo/web test` fails if the two files' keys or placeholders differ, or if
+`packages/core` returns an error code with no `errors.<CODE>` message. Core code returns
+codes, never prose: schemas use codes as zod messages, and actions translate them with
+`failure()` / `validationFailure()` (`apps/web/src/server/i18n.ts`).
+
+## Object storage
+
+`StorageProvider` (`packages/core/src/storage`): `put(key, body, contentType, cacheControl)`,
+`delete(key)`, `publicUrl(key)`.
+
+- `STORAGE_PROVIDER=local`: `LocalDiskProvider`, files under `apps/web/public/uploads`, served by
+  `GET /api/uploads/<key>`. Production refuses it unless `ROOT_DOMAIN` is a localhost domain
+  (so `next start` works on a dev machine).
+- `STORAGE_PROVIDER=s3`: `S3CompatibleProvider` (`@aws-sdk/client-s3`); one implementation for R2
+  and Spaces.
+
+Upload pipeline (`processAndStoreImage(kind, …)` in `packages/core/src/images.ts`, reused by
+product images on Day 3): JPEG, PNG or WebP verified by magic bytes, ≤ 5 MB, ≥ 128 px →
+sharp (auto-orient, EXIF and metadata stripped) → logo ≤ 512×512 WebP + 64×64 favicon PNG under
+immutable keys `stores/<storeId>/logo/<cuid>.webp` and `stores/<storeId>/favicon/<cuid>.png`
+(`Cache-Control: public, max-age=31536000, immutable`). Keys outside `stores/<storeId>/` are
+rejected in code and by CHECK constraints. The previous files are deleted (best effort)
+after a successful save. Server actions accept bodies up to 6 MB.
+
+**Cloudflare R2**
+
+```sh
+STORAGE_PROVIDER=s3
+S3_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+S3_REGION=auto
+S3_BUCKET=easycommerce-assets
+S3_ACCESS_KEY_ID=<R2 API token access key>
+S3_SECRET_ACCESS_KEY=<R2 API token secret>
+S3_FORCE_PATH_STYLE=false
+ASSET_PUBLIC_BASE_URL=https://assets.example.com   # custom domain on the bucket (or the r2.dev URL)
+# S3_OBJECT_ACL unset: R2 ignores ACLs; public access is per bucket.
+```
+
+Create the bucket, an R2 API token with Object Read & Write for that bucket, and connect a
+custom domain (or enable the r2.dev subdomain) for public reads.
+
+**DigitalOcean Spaces**
+
+```sh
+STORAGE_PROVIDER=s3
+S3_ENDPOINT=https://sgp1.digitaloceanspaces.com
+S3_REGION=sgp1
+S3_BUCKET=easycommerce-assets
+S3_ACCESS_KEY_ID=<Spaces access key>
+S3_SECRET_ACCESS_KEY=<Spaces secret>
+S3_FORCE_PATH_STYLE=false
+ASSET_PUBLIC_BASE_URL=https://easycommerce-assets.sgp1.cdn.digitaloceanspaces.com
+S3_OBJECT_ACL=public-read   # Spaces objects are private by default
+```
+
+Tests use `LocalDiskProvider` and a mocked S3 client (`aws-sdk-client-mock`). One live
+upload/delete test runs only when all of `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
+`S3_SECRET_ACCESS_KEY` and `ASSET_PUBLIC_BASE_URL` are set.
+
+Day 2 decisions and gaps: [docs/day-2-notes.md](docs/day-2-notes.md).
