@@ -3,6 +3,7 @@ import { Button } from "@repo/ui";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getStoreForHost } from "@/lib/store";
 
 type Props = { params: Promise<{ host: string; slug: string }> };
@@ -32,6 +33,7 @@ export default async function ProductPage({ params }: Props) {
   const found = await getProduct(host, slug);
   if (!found) return null;
   const { product, lang } = found;
+  const t = await getTranslations("storefront");
   const image = (product.images as ProductImage[])[0];
 
   return (
@@ -64,13 +66,7 @@ export default async function ProductPage({ params }: Props) {
                 <span className="text-sm">
                   {formatBDT(v.price, lang)}
                   <span className="ml-2 text-neutral-500">
-                    {v.stock > 0
-                      ? lang === "bn"
-                        ? `স্টকে ${v.stock}`
-                        : `${v.stock} in stock`
-                      : lang === "bn"
-                        ? "স্টক শেষ"
-                        : "Sold out"}
+                    {v.stock > 0 ? t("inStock", { count: v.stock }) : t("soldOut")}
                   </span>
                 </span>
               </li>
@@ -79,7 +75,7 @@ export default async function ProductPage({ params }: Props) {
         ) : null}
 
         <Button size="lg" disabled>
-          {lang === "bn" ? "অর্ডার করুন (শীঘ্রই)" : "Order now (coming soon)"}
+          {t("orderSoon")}
         </Button>
       </div>
     </article>

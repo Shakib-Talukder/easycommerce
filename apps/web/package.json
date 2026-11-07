@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "eslint .",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@repo/core": "workspace:*",
@@ -16,6 +17,7 @@
     "@repo/ui": "workspace:*",
     "dotenv": "18.0.9",
     "next": "16.4.5",
+    "next-intl": "4.14.9",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "server-only": "0.0.1",
@@ -30,6 +32,7 @@
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.5",
     "tailwindcss": "4.3.5",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
   }
 }

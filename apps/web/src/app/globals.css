@@ -19,8 +19,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  /* Hind Siliguri / Noto Sans Bengali render Bangla well when installed; system fonts otherwise. */
-  --font-sans: "Hind Siliguri", "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
+  /* Inter for Latin, Noto Sans Bengali for Bangla glyphs (both loaded with next/font in app/layout.tsx). */
+  --font-sans: var(--font-latin), var(--font-bengali), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {

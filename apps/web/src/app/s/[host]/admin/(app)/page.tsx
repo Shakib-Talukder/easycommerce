@@ -1,10 +1,12 @@
 import { forStore } from "@repo/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui";
 import type { Metadata } from "next";
-import { t } from "@/lib/i18n";
+import { getFormatter, getTranslations } from "next-intl/server";
 import { requireUser } from "@/server/auth";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("dashboard"))("metaTitle") };
+}
 
 /** Midnight in Asia/Dhaka (UTC+6, no DST) as a UTC instant. */
 function startOfTodayInDhaka(now = new Date()): Date {
@@ -16,27 +18,25 @@ function startOfTodayInDhaka(now = new Date()): Date {
 
 export default async function DashboardPage() {
   const { store, user } = await requireUser();
-  const lang = store.language;
   const db = forStore(store.id);
-  const [products, orders, customers, today] = await Promise.all([
+  const [products, orders, customers, today, t, format] = await Promise.all([
     db.product.count({ where: { deletedAt: null } }),
     db.order.count(),
     db.customer.count({ where: { deletedAt: null } }),
     db.order.count({ where: { createdAt: { gte: startOfTodayInDhaka() } } }),
+    getTranslations("dashboard"),
+    getFormatter(),
   ]);
-  const number = new Intl.NumberFormat(lang === "bn" ? "bn-BD" : "en-BD");
   const stats = [
-    { key: "products", label: t(lang, "dash.products"), value: products },
-    { key: "orders", label: t(lang, "dash.orders"), value: orders },
-    { key: "customers", label: t(lang, "dash.customers"), value: customers },
-    { key: "today", label: t(lang, "dash.today"), value: today },
+    { key: "products", label: t("products"), value: products },
+    { key: "orders", label: t("orders"), value: orders },
+    { key: "customers", label: t("customers"), value: customers },
+    { key: "today", label: t("today"), value: today },
   ];
 
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">
-        {t(lang, "dash.welcome")}, {user.name}
-      </h1>
+      <h1 className="text-2xl font-bold">{t("welcome", { name: user.name })}</h1>
       <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {stats.map((s) => (
           <Card key={s.key} data-stat={s.key} data-value={s.value}>
@@ -46,7 +46,8 @@ export default async function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 pt-0">
-              <dd className="text-3xl font-bold">{number.format(s.value)}</dd>
+              {/* Bangla digits in bn (Intl via next-intl's formatter). */}
+              <dd className="text-3xl font-bold">{format.number(s.value)}</dd>
             </CardContent>
           </Card>
         ))}

@@ -37,7 +37,14 @@ export async function createSession(
 export type ValidSession = {
   claims: VerifiedSession;
   session: { id: string; expiresAt: Date };
-  user: { id: string; name: string; email: string | null; phone: string | null; role: Role };
+  user: {
+    id: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    role: Role;
+    locale: "bn" | "en";
+  };
 };
 
 const TOUCH_INTERVAL_MS = 5 * 60 * 1000;
@@ -57,7 +64,9 @@ export async function validateSession(
   const session = await db.session.findUnique({
     where: { id: claims.sid },
     include: {
-      user: { select: { id: true, name: true, email: true, phone: true, role: true, isActive: true } },
+      user: {
+        select: { id: true, name: true, email: true, phone: true, role: true, locale: true, isActive: true },
+      },
     },
   });
   const now = new Date();

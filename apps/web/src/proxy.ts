@@ -1,6 +1,7 @@
 import { SESSION_COOKIE, needsRefresh, sessionCookieOptions, verifySessionToken } from "@repo/core/jwt";
 import { parseHost } from "@repo/db/host";
 import { NextResponse, type NextRequest } from "next/server";
+import { SURFACE_HEADER, surfaceFor } from "./i18n/locale";
 
 const STORE_PREFIX = "/s/";
 /** Admin routes reachable without a session. */
@@ -30,7 +31,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const target = parseHost(host, rootDomain);
-  if (target.kind === "root") return NextResponse.next();
+  // Tells the next-intl request config which locale rules apply; overwrites any client value.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(SURFACE_HEADER, surfaceFor(target.kind !== "root", pathname));
+  if (target.kind === "root") return NextResponse.next({ request: { headers: requestHeaders } });
 
   let refreshed: { token: string; expiresAt: Date } | null = null;
   if (isAdminPath(pathname) && !isPublicAdminPath(pathname)) {
@@ -48,10 +52,11 @@ export async function proxy(request: NextRequest) {
   url.pathname = `${STORE_PREFIX}${encodeURIComponent(host.toLowerCase())}${pathname === "/" ? "" : pathname}`;
   url.search = search;
 
-  if (!refreshed) return NextResponse.rewrite(url);
+  if (!refreshed) return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   // Let this request's server code see the new token, and send it to the browser.
   request.cookies.set(SESSION_COOKIE, refreshed.token);
-  const response = NextResponse.rewrite(url, { request: { headers: request.headers } });
+  requestHeaders.set("cookie", request.headers.get("cookie") ?? "");
+  const response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
   response.cookies.set(SESSION_COOKIE, refreshed.token, sessionCookieOptions(refreshed.expiresAt));
   return response;
 }

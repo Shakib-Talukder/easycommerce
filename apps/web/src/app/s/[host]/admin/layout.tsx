@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { t } from "@/lib/i18n";
+import { getTranslations } from "next-intl/server";
 import { getStoreForHost } from "@/lib/store";
 
 type Props = { children: ReactNode; params: Promise<{ host: string }> };
@@ -11,13 +11,17 @@ export const metadata: Metadata = { robots: { index: false, follow: false } };
 export default async function AdminRootLayout({ children, params }: Props) {
   const { store } = await getStoreForHost((await params).host);
   if (store.status === "SUSPENDED") {
+    const [bn, en] = await Promise.all([
+      getTranslations({ locale: "bn", namespace: "storefront" }),
+      getTranslations({ locale: "en", namespace: "storefront" }),
+    ]);
     return (
       <main
         data-store-status="unavailable"
         className="flex flex-1 items-center justify-center px-4 py-24 text-center"
       >
         <h1 className="text-2xl font-bold">
-          {t("bn", "store.unavailable")} / {t("en", "store.unavailable")}
+          {bn("unavailable")} / {en("unavailable")}
         </h1>
       </main>
     );

@@ -1,23 +1,28 @@
 import { listStaff } from "@repo/core";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@repo/ui";
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { InviteForm } from "@/components/admin-forms";
-import { t } from "@/lib/i18n";
 import { deactivateStaffAction } from "@/server/actions/staff";
 import { requireRole } from "@/server/auth";
 
-export const metadata: Metadata = { title: "Staff" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getTranslations("staff"))("metaTitle") };
+}
 
 export default async function StaffPage() {
   const { store, user: me } = await requireRole("OWNER");
-  const lang = store.language;
-  const users = await listStaff(store.id);
+  const [users, t, tc] = await Promise.all([
+    listStaff(store.id),
+    getTranslations("staff"),
+    getTranslations("common"),
+  ]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle>{t(lang, "staff.title")}</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
@@ -26,15 +31,15 @@ export default async function StaffPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{u.name}</p>
                   <p className="truncate text-xs text-neutral-500">
-                    {[u.phone, u.email].filter(Boolean).join(" · ")} · {t(lang, `role.${u.role}`)} ·{" "}
-                    {u.isActive ? t(lang, "staff.active") : t(lang, "staff.pending")}
+                    {[u.phone, u.email].filter(Boolean).join(" · ")} · {tc(`roles.${u.role}`)} ·{" "}
+                    {u.isActive ? t("active") : t("pending")}
                   </p>
                 </div>
                 {u.role === "STAFF" && u.isActive && u.id !== me.id ? (
                   <form action={deactivateStaffAction}>
                     <input type="hidden" name="userId" value={u.id} />
                     <Button type="submit" variant="outline" size="sm">
-                      {t(lang, "staff.deactivate")}
+                      {t("deactivate")}
                     </Button>
                   </form>
                 ) : null}
@@ -45,10 +50,10 @@ export default async function StaffPage() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{t(lang, "staff.invite")}</CardTitle>
+          <CardTitle>{t("invite")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <InviteForm lang={lang} />
+          <InviteForm />
         </CardContent>
       </Card>
     </div>

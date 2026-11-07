@@ -2,7 +2,7 @@ import { storeDisplayName } from "@repo/db";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { t } from "@/lib/i18n";
+import { getTranslations } from "next-intl/server";
 import { getStoreForHost } from "@/lib/store";
 
 type Props = { children: ReactNode; params: Promise<{ host: string }> };
@@ -21,6 +21,7 @@ export default async function StorefrontLayout({ children, params }: Props) {
   if (store.status === "PENDING") return <ComingSoon nameBn={store.nameBn} nameEn={store.nameEn} />;
   if (store.status === "SUSPENDED") return <StoreUnavailable />;
   const name = storeDisplayName(store, settings.language);
+  const t = await getTranslations("storefront");
 
   return (
     <>
@@ -54,42 +55,50 @@ export default async function StorefrontLayout({ children, params }: Props) {
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
       <footer className="border-t border-neutral-200 py-6 text-center text-xs text-neutral-500 dark:border-neutral-800">
         {settings.address}
-        {settings.codEnabled ? ` · ${t(settings.language, "store.cod")}` : null}
+        {settings.codEnabled ? ` · ${t("cod")}` : null}
       </footer>
     </>
   );
 }
 
+const bilingual = () =>
+  Promise.all([
+    getTranslations({ locale: "bn", namespace: "storefront" }),
+    getTranslations({ locale: "en", namespace: "storefront" }),
+  ]);
+
 /** Bilingual on purpose: visitors arrive before the store has chosen a language. */
-function ComingSoon({ nameBn, nameEn }: { nameBn: string; nameEn: string }) {
+async function ComingSoon({ nameBn, nameEn }: { nameBn: string; nameEn: string }) {
+  const [bn, en] = await bilingual();
   return (
     <main
       data-store-status="coming-soon"
       className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-24 text-center"
     >
       <p className="text-sm font-medium tracking-wide text-[var(--brand)] uppercase">
-        {t("bn", "store.comingSoon")} · {t("en", "store.comingSoon")}
+        {bn("comingSoon")} · {en("comingSoon")}
       </p>
       <h1 className="text-3xl font-bold">{nameBn}</h1>
       {nameEn !== nameBn ? <p className="text-xl text-neutral-600 dark:text-neutral-400">{nameEn}</p> : null}
       <p className="max-w-md text-neutral-500" lang="bn">
-        {t("bn", "store.comingSoonBody")}
+        {bn("comingSoonBody")}
       </p>
       <p className="max-w-md text-neutral-500" lang="en">
-        {t("en", "store.comingSoonBody")}
+        {en("comingSoonBody")}
       </p>
     </main>
   );
 }
 
-function StoreUnavailable() {
+async function StoreUnavailable() {
+  const [bn, en] = await bilingual();
   return (
     <main
       data-store-status="unavailable"
       className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-24 text-center"
     >
       <h1 className="text-2xl font-bold">
-        {t("bn", "store.unavailable")} / {t("en", "store.unavailable")}
+        {bn("unavailable")} / {en("unavailable")}
       </h1>
     </main>
   );

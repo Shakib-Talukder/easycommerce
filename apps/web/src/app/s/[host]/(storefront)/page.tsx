@@ -2,6 +2,7 @@ import { forStore, formatBDT } from "@repo/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui";
 import Image from "next/image";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { getStoreForHost } from "@/lib/store";
 
 type ProductImage = { url: string; alt?: string };
@@ -18,7 +19,7 @@ export default async function StoreHome({ params }: { params: Promise<{ host: st
   const lang = settings.language;
 
   if (products.length === 0) {
-    return <p className="text-neutral-500">{lang === "bn" ? "এখনো কোনো পণ্য নেই।" : "No products yet."}</p>;
+    return <p className="text-neutral-500">{(await getTranslations("storefront"))("noProducts")}</p>;
   }
 
   return (

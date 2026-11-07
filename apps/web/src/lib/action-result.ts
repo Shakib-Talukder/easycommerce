@@ -1,17 +1,16 @@
-import type { z } from "zod";
-
-/** Result of a server action, consumed by useActionState forms. */
+/**
+ * Result of a server action, consumed by useActionState forms. `message` is
+ * already translated; `code` is the stable error code (also rendered as
+ * data-error-code for tests).
+ */
 export type ActionResult =
-  | { ok: true; message?: string }
-  | { ok: false; code: string; message: string; fieldErrors?: Record<string, string[]> };
+  | { ok: true; message?: string; data?: Record<string, unknown> }
+  | {
+      ok: false;
+      code: string;
+      message: string;
+      fieldErrors?: Record<string, string[]>;
+      data?: Record<string, unknown>;
+    };
 
 export type ActionState = ActionResult | null;
-
-export function validationError(error: z.ZodError, message: string): ActionResult {
-  const fieldErrors: Record<string, string[]> = {};
-  for (const issue of error.issues) {
-    const key = String(issue.path[0] ?? "form");
-    (fieldErrors[key] ??= []).push(issue.message);
-  }
-  return { ok: false, code: "VALIDATION", message, fieldErrors };
-}
