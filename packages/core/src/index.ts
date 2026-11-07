@@ -12,3 +12,8 @@ export * from "./auth/signup";
 export * from "./auth/handoff";
 export * from "./auth/staff";
 export * from "./auth/rbac";
+export * from "./storage";
+export * from "./images";
+export * from "./store/color";
+export * from "./store/locations";
+export * from "./store/settings";

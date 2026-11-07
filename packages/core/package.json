@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./jwt": "./src/auth/jwt.ts",
-    "./sessions": "./src/auth/sessions.ts"
+    "./sessions": "./src/auth/sessions.ts",
+    "./color": "./src/store/color.ts",
+    "./locations": "./src/store/locations.ts"
   },
   "scripts": {
     "redis:local": "tsx scripts/local-redis.ts",
@@ -15,17 +17,20 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "3.1163.0",
     "@paralleldrive/cuid2": "3.3.0",
     "@repo/db": "workspace:*",
     "ioredis": "6.0.0",
     "jose": "6.2.15",
     "nodemailer": "10.3.1",
+    "sharp": "0.35.5",
     "zod": "4.6.7"
   },
   "devDependencies": {
     "@repo/config": "workspace:*",
     "@types/node": "24.19.2",
     "@types/nodemailer": "8.0.2",
+    "aws-sdk-client-mock": "4.1.0",
     "dotenv": "18.0.9",
     "eslint": "9.39.5",
     "tsx": "4.23.15",
