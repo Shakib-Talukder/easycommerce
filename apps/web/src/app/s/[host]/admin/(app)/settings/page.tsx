@@ -1,4 +1,4 @@
-import { SETTINGS_SECTIONS, isSettingsSection } from "@repo/core";
+import { SETTINGS_TABS, isSettingsTab } from "@repo/core";
 import { Card, CardContent, CardHeader, CardTitle } from "@repo/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -9,6 +9,7 @@ import {
   DeliverySection,
   IdentitySection,
   PaymentsSection,
+  SocialSeoSection,
 } from "@/components/store-settings";
 import { requireRole } from "@/server/auth";
 import { requestProtocol } from "@/server/request";
@@ -23,15 +24,19 @@ const SECTIONS = {
   branding: BrandingSection,
   payments: PaymentsSection,
   delivery: DeliverySection,
+  social: SocialSeoSection,
 } as const;
 
 type Props = { searchParams: Promise<{ tab?: string }> };
 
-/** OWNER only. Same section components and validation as the onboarding wizard. */
+/**
+ * OWNER only. The wizard's sections reuse the same components and validation;
+ * "Social & SEO" is settings-only.
+ */
 export default async function SettingsPage({ searchParams }: Props) {
   const { store } = await requireRole("OWNER");
   const tab = (await searchParams).tab;
-  const active = isSettingsSection(tab) ? tab : "identity";
+  const active = isSettingsTab(tab) ? tab : "identity";
   const [{ values }, t, to] = await Promise.all([
     loadSettingsValues(store.id),
     getTranslations("settings"),
@@ -55,11 +60,16 @@ export default async function SettingsPage({ searchParams }: Props) {
       </div>
       <Card>
         <CardHeader className="pb-0">
-          <CardTitle className="sr-only">{to(`steps.${active}`)}</CardTitle>
+          <CardTitle className="sr-only">
+            {active === "social" ? t("social.tab") : to(`steps.${active}`)}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <SettingsTabs
-            tabs={SETTINGS_SECTIONS.map((s) => ({ id: s, label: to(`steps.${s}`) }))}
+            tabs={SETTINGS_TABS.map((s) => ({
+              id: s,
+              label: s === "social" ? t("social.tab") : to(`steps.${s}`),
+            }))}
             active={active}
           >
             {/* key: remount on tab change so each tab starts from saved values. */}

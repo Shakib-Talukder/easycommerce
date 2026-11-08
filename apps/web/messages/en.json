@@ -171,6 +171,24 @@
       "daysOutside": "Estimated days, outside Dhaka",
       "freeFrom": "Free from {amount}",
       "days": "{count, plural, one {# day} other {# days}}"
+    },
+    "social": {
+      "tab": "Social & SEO",
+      "intro": "Links shown in your storefront footer, and how your store appears in search results and when shared.",
+      "linksTitle": "Social links",
+      "facebook": "Facebook page",
+      "instagram": "Instagram",
+      "youtube": "YouTube",
+      "tiktok": "TikTok",
+      "whatsapp": "WhatsApp number",
+      "whatsappHint": "Customers can start a WhatsApp chat with this number.",
+      "seoTitle": "Search and sharing",
+      "metaTitleBn": "Page title (বাংলা)",
+      "metaTitleEn": "Page title (English)",
+      "metaDescriptionBn": "Description (বাংলা)",
+      "metaDescriptionEn": "Description (English)",
+      "titleHint": "Up to {max, number} characters. Leave empty to use the store name.",
+      "descriptionHint": "Up to {max, number} characters. Leave empty to use the tagline."
     }
   },
   "dashboard": {
@@ -200,7 +218,20 @@
     "cod": "Cash on delivery",
     "comingSoon": "Coming soon",
     "comingSoonBody": "This store is being set up. Please check back soon.",
-    "unavailable": "Store unavailable"
+    "unavailable": "Store unavailable",
+    "contact": "Contact",
+    "address": "Address",
+    "paymentsAccepted": "We accept",
+    "bkash": "bKash",
+    "nagad": "Nagad",
+    "delivery": "Delivery",
+    "insideDhaka": "Inside Dhaka",
+    "outsideDhaka": "Outside Dhaka",
+    "freeDeliveryFrom": "Free delivery on orders from {amount}",
+    "deliveryDays": "{count, plural, one {# day} other {# days}}",
+    "followUs": "Follow us",
+    "whatsappChat": "Chat on WhatsApp",
+    "social": { "facebook": "Facebook", "instagram": "Instagram", "youtube": "YouTube", "tiktok": "TikTok" }
   },
   "errors": {
     "VALIDATION": "Please fix the highlighted fields.",
@@ -241,6 +272,10 @@
     "UPLOAD_TOO_SMALL": "The image must be at least 128 × 128 pixels.",
     "UPLOAD_INVALID": "This image file is damaged or can't be read.",
     "KEY_OUTSIDE_PREFIX": "That file doesn't belong to this store.",
-    "ONBOARDING_STEP_LOCKED": "Finish the earlier steps first."
+    "ONBOARDING_STEP_LOCKED": "Finish the earlier steps first.",
+    "FACEBOOK_URL": "Enter the https:// link to your Facebook page (facebook.com/…).",
+    "INSTAGRAM_URL": "Enter the https:// link to your Instagram profile (instagram.com/…).",
+    "YOUTUBE_URL": "Enter the https:// link to your YouTube channel (youtube.com/…).",
+    "TIKTOK_URL": "Enter the https:// link to your TikTok profile (tiktok.com/@…)."
   }
 }

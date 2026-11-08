@@ -171,6 +171,24 @@
       "daysOutside": "আনুমানিক সময়, ঢাকার বাইরে (দিন)",
       "freeFrom": "{amount} থেকে ফ্রি",
       "days": "{count, plural, other {# দিন}}"
+    },
+    "social": {
+      "tab": "সোশ্যাল ও SEO",
+      "intro": "আপনার দোকানের ফুটারে দেখানো লিংক, আর সার্চ ফলাফলে ও শেয়ার করলে দোকানটি কেমন দেখাবে।",
+      "linksTitle": "সোশ্যাল লিংক",
+      "facebook": "ফেসবুক পেজ",
+      "instagram": "ইনস্টাগ্রাম",
+      "youtube": "ইউটিউব",
+      "tiktok": "টিকটক",
+      "whatsapp": "হোয়াটসঅ্যাপ নম্বর",
+      "whatsappHint": "ক্রেতারা এই নম্বরে হোয়াটসঅ্যাপে মেসেজ পাঠাতে পারবেন।",
+      "seoTitle": "সার্চ ও শেয়ার",
+      "metaTitleBn": "পেজের শিরোনাম (বাংলা)",
+      "metaTitleEn": "পেজের শিরোনাম (English)",
+      "metaDescriptionBn": "বিবরণ (বাংলা)",
+      "metaDescriptionEn": "বিবরণ (English)",
+      "titleHint": "সর্বোচ্চ {max, number} অক্ষর। খালি রাখলে দোকানের নাম ব্যবহার হবে।",
+      "descriptionHint": "সর্বোচ্চ {max, number} অক্ষর। খালি রাখলে ট্যাগলাইন ব্যবহার হবে।"
     }
   },
   "dashboard": {
@@ -200,7 +218,20 @@
     "cod": "ক্যাশ অন ডেলিভারি",
     "comingSoon": "শীঘ্রই আসছে",
     "comingSoonBody": "দোকানটি তৈরি হচ্ছে। শীঘ্রই আবার দেখুন।",
-    "unavailable": "দোকানটি এখন পাওয়া যাচ্ছে না"
+    "unavailable": "দোকানটি এখন পাওয়া যাচ্ছে না",
+    "contact": "যোগাযোগ",
+    "address": "ঠিকানা",
+    "paymentsAccepted": "পেমেন্টের উপায়",
+    "bkash": "বিকাশ",
+    "nagad": "নগদ",
+    "delivery": "ডেলিভারি",
+    "insideDhaka": "ঢাকার ভেতরে",
+    "outsideDhaka": "ঢাকার বাইরে",
+    "freeDeliveryFrom": "{amount} বা তার বেশি অর্ডারে ফ্রি ডেলিভারি",
+    "deliveryDays": "{count, plural, other {# দিন}}",
+    "followUs": "আমাদের ফলো করুন",
+    "whatsappChat": "হোয়াটসঅ্যাপে মেসেজ করুন",
+    "social": { "facebook": "ফেসবুক", "instagram": "ইনস্টাগ্রাম", "youtube": "ইউটিউব", "tiktok": "টিকটক" }
   },
   "errors": {
     "VALIDATION": "চিহ্নিত তথ্যগুলো ঠিক করুন।",
@@ -241,6 +272,10 @@
     "UPLOAD_TOO_SMALL": "ছবিটি অন্তত ১২৮ × ১২৮ পিক্সেল হতে হবে।",
     "UPLOAD_INVALID": "ছবির ফাইলটি নষ্ট বা পড়া যাচ্ছে না।",
     "KEY_OUTSIDE_PREFIX": "এই ফাইলটি এই দোকানের নয়।",
-    "ONBOARDING_STEP_LOCKED": "আগের ধাপগুলো আগে শেষ করুন।"
+    "ONBOARDING_STEP_LOCKED": "আগের ধাপগুলো আগে শেষ করুন।",
+    "FACEBOOK_URL": "আপনার ফেসবুক পেজের https:// লিংক দিন (facebook.com/…)।",
+    "INSTAGRAM_URL": "আপনার ইনস্টাগ্রাম প্রোফাইলের https:// লিংক দিন (instagram.com/…)।",
+    "YOUTUBE_URL": "আপনার ইউটিউব চ্যানেলের https:// লিংক দিন (youtube.com/…)।",
+    "TIKTOK_URL": "আপনার টিকটক প্রোফাইলের https:// লিংক দিন (tiktok.com/@…)।"
   }
 }

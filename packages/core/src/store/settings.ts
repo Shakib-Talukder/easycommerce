@@ -2,6 +2,16 @@ import { normalizeDigits, takaToPoisha, withStore, type TenantTx } from "@repo/d
 import { bdPhoneSchema, emailSchema, hexColorSchema, storeNameSchema } from "@repo/db/validation";
 import { z } from "zod";
 import { DIVISIONS, findDistrict } from "./locations";
+import {
+  SEO_DESCRIPTION_MAX,
+  SEO_TITLE_MAX,
+  SOCIAL_ERROR,
+  SOCIAL_PLATFORMS,
+  isPlatformUrl,
+  type SocialPlatform,
+} from "./social";
+
+export * from "./social";
 
 /*
  * Store settings, shared by the onboarding wizard and /admin/settings.
@@ -16,6 +26,11 @@ export const ONBOARDING_STEP_COUNT = SETTINGS_SECTIONS.length;
 export const stepOf = (section: SettingsSection): number => SETTINGS_SECTIONS.indexOf(section) + 1;
 export const isSettingsSection = (v: unknown): v is SettingsSection =>
   SETTINGS_SECTIONS.includes(v as SettingsSection);
+
+/** /admin/settings tabs: the wizard sections plus settings-only ones (not in the wizard). */
+export const SETTINGS_TABS = [...SETTINGS_SECTIONS, "social"] as const;
+export type SettingsTab = (typeof SETTINGS_TABS)[number];
+export const isSettingsTab = (v: unknown): v is SettingsTab => SETTINGS_TABS.includes(v as SettingsTab);
 
 const isBlank = (v: unknown) => v === undefined || v === null || (typeof v === "string" && v.trim() === "");
 const blankToUndefined = (v: unknown) => (isBlank(v) ? undefined : v);
@@ -108,6 +123,76 @@ export const deliverySchema = z.object({
   deliveryDaysOutsideDhaka: deliveryDays,
 });
 
+// ---------------------------------------------------------------------------
+// Social links and SEO (settings only)
+// ---------------------------------------------------------------------------
+
+const socialUrl = (platform: SocialPlatform) =>
+  z.preprocess(
+    blankToUndefined,
+    z
+      .string()
+      .trim()
+      .refine((v) => isPlatformUrl(platform, v), SOCIAL_ERROR[platform])
+      .optional(),
+  );
+
+/** What social_links holds. WhatsApp is a BD mobile number (E.164); the storefront links to wa.me. */
+export const socialLinksSchema = z.object({
+  facebook: socialUrl("facebook"),
+  instagram: socialUrl("instagram"),
+  youtube: socialUrl("youtube"),
+  tiktok: socialUrl("tiktok"),
+  whatsapp: optionalPhone,
+});
+
+/** What seo holds: per-language meta title (≤ 60) and description (≤ 160). */
+export const seoSchema = z.object({
+  titleBn: optionalText(SEO_TITLE_MAX),
+  titleEn: optionalText(SEO_TITLE_MAX),
+  descriptionBn: optionalText(SEO_DESCRIPTION_MAX),
+  descriptionEn: optionalText(SEO_DESCRIPTION_MAX),
+});
+
+/** The "Social & SEO" tab's form: both objects, flat field names. */
+export const socialSeoSchema = z.object({
+  facebook: socialLinksSchema.shape.facebook,
+  instagram: socialLinksSchema.shape.instagram,
+  youtube: socialLinksSchema.shape.youtube,
+  tiktok: socialLinksSchema.shape.tiktok,
+  whatsapp: socialLinksSchema.shape.whatsapp,
+  metaTitleBn: seoSchema.shape.titleBn,
+  metaTitleEn: seoSchema.shape.titleEn,
+  metaDescriptionBn: seoSchema.shape.descriptionBn,
+  metaDescriptionEn: seoSchema.shape.descriptionEn,
+});
+
+export type SocialLinks = z.output<typeof socialLinksSchema>;
+export type Seo = z.output<typeof seoSchema>;
+export type SocialSeoData = z.output<typeof socialSeoSchema>;
+
+/** Reads the social_links JSON column; invalid or unknown entries are dropped, never trusted. */
+export function readSocialLinks(json: unknown): SocialLinks {
+  const out: SocialLinks = {};
+  const obj = (json && typeof json === "object" ? json : {}) as Record<string, unknown>;
+  for (const key of [...SOCIAL_PLATFORMS, "whatsapp"] as const) {
+    const parsed = socialLinksSchema.shape[key].safeParse(obj[key]);
+    if (parsed.success && parsed.data) out[key] = parsed.data;
+  }
+  return out;
+}
+
+/** Reads the seo JSON column, keeping only valid fields. */
+export function readSeo(json: unknown): Seo {
+  const out: Seo = {};
+  const obj = (json && typeof json === "object" ? json : {}) as Record<string, unknown>;
+  for (const key of ["titleBn", "titleEn", "descriptionBn", "descriptionEn"] as const) {
+    const parsed = seoSchema.shape[key].safeParse(obj[key]);
+    if (parsed.success && parsed.data) out[key] = parsed.data;
+  }
+  return out;
+}
+
 export type IdentityData = z.output<typeof identitySchema>;
 export type BrandingData = z.output<typeof brandingSchema>;
 export type PaymentsData = z.output<typeof paymentsSchema>;
@@ -117,17 +202,19 @@ export type SectionInput =
   | { section: "identity"; data: IdentityData }
   | { section: "branding"; data: BrandingData }
   | { section: "payments"; data: PaymentsData }
-  | { section: "delivery"; data: DeliveryData };
+  | { section: "delivery"; data: DeliveryData }
+  | { section: "social"; data: SocialSeoData };
 
 export type ParseSectionResult = { ok: true; value: SectionInput } | { ok: false; error: z.ZodError };
 
 /** Parses raw form values for one section. */
-export function parseSection(section: SettingsSection, input: Record<string, unknown>): ParseSectionResult {
+export function parseSection(section: SettingsTab, input: Record<string, unknown>): ParseSectionResult {
   const schemas = {
     identity: identitySchema,
     branding: brandingSchema,
     payments: paymentsSchema,
     delivery: deliverySchema,
+    social: socialSeoSchema,
   } as const;
   const parsed = schemas[section].safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error };
@@ -176,6 +263,27 @@ function settingsUpdate(input: SectionInput) {
         deliveryDaysOutsideDhaka: orNull(d.deliveryDaysOutsideDhaka),
       };
     }
+    case "social": {
+      const d = input.data;
+      // Only set keys are stored, so the JSON stays small and readSocialLinks/readSeo stay simple.
+      const compact = (o: Record<string, string | undefined>) =>
+        Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Record<string, string>;
+      return {
+        socialLinks: compact({
+          facebook: d.facebook,
+          instagram: d.instagram,
+          youtube: d.youtube,
+          tiktok: d.tiktok,
+          whatsapp: d.whatsapp,
+        }),
+        seo: compact({
+          titleBn: d.metaTitleBn,
+          titleEn: d.metaTitleEn,
+          descriptionBn: d.metaDescriptionBn,
+          descriptionEn: d.metaDescriptionEn,
+        }),
+      };
+    }
   }
 }
 
@@ -212,15 +320,21 @@ export async function saveSettingsSection(
 ): Promise<OnboardingStepResult> {
   return withStore(storeId, async (tx): Promise<OnboardingStepResult> => {
     // In the wizard, a later step can't be saved (and so marked done) before the earlier ones.
-    if (options.completeStep && !(await assertStepReachable(tx, storeId, stepOf(input.section)))) {
-      return { ok: false, error: "ONBOARDING_STEP_LOCKED" };
+    if (options.completeStep) {
+      // "social" is settings-only: it is never a wizard step.
+      if (!isSettingsSection(input.section)) return { ok: false, error: "ONBOARDING_STEP_LOCKED" };
+      if (!(await assertStepReachable(tx, storeId, stepOf(input.section)))) {
+        return { ok: false, error: "ONBOARDING_STEP_LOCKED" };
+      }
     }
     if (input.section === "identity") {
       const { nameBn, nameEn } = input.data;
       await tx.store.update({ where: { id: storeId }, data: { nameBn, nameEn } });
     }
     await tx.storeSettings.update({ where: { storeId }, data: settingsUpdate(input) });
-    if (options.completeStep) await completeOnboardingStep(tx, storeId, stepOf(input.section));
+    if (options.completeStep && isSettingsSection(input.section)) {
+      await completeOnboardingStep(tx, storeId, stepOf(input.section));
+    }
     return { ok: true };
   });
 }

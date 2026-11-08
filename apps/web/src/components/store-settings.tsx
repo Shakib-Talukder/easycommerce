@@ -2,6 +2,7 @@
 
 import { AA_CONTRAST, PALETTES, contrastRatio } from "@repo/core/color";
 import { DIVISIONS, findDivision } from "@repo/core/locations";
+import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX } from "@repo/core/social";
 import { Button, Input, Label, cn } from "@repo/ui";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -48,7 +49,7 @@ function SectionForm({
   mode,
   children,
 }: {
-  section: "identity" | "branding" | "payments" | "delivery";
+  section: "identity" | "branding" | "payments" | "delivery" | "social";
   mode: SectionMode;
   children: (state: ActionState) => ReactNode;
 }) {
@@ -578,6 +579,132 @@ export function DeliverySection({ values, mode }: SectionProps) {
         </div>
       )}
     </SectionForm>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Social & SEO (settings only, OWNER)
+// ---------------------------------------------------------------------------
+
+export function SocialSeoSection({ values, mode }: SectionProps) {
+  const t = useTranslations("settings.social");
+  const links = [
+    ["facebook", "https://www.facebook.com/…"],
+    ["instagram", "https://www.instagram.com/…"],
+    ["youtube", "https://www.youtube.com/@…"],
+    ["tiktok", "https://www.tiktok.com/@…"],
+  ] as const;
+  return (
+    <SectionForm section="social" mode={mode}>
+      {(state) => (
+        <>
+          <p className="text-sm text-neutral-500">{t("intro")}</p>
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-1 font-semibold">{t("linksTitle")}</legend>
+            {links.map(([name, placeholder]) => (
+              <Field
+                key={name}
+                name={name}
+                label={t(name)}
+                state={state}
+                defaultValue={values[name]}
+                type="url"
+                inputMode="url"
+                placeholder={placeholder}
+                autoCapitalize="none"
+                spellCheck={false}
+                optional
+              />
+            ))}
+            <Field
+              name="whatsapp"
+              label={t("whatsapp")}
+              hint={t("whatsappHint")}
+              state={state}
+              defaultValue={values.whatsapp}
+              type="tel"
+              inputMode="tel"
+              placeholder="01711000000"
+              optional
+            />
+          </fieldset>
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-1 font-semibold">{t("seoTitle")}</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {(["metaTitleBn", "metaTitleEn"] as const).map((name) => (
+                <Field
+                  key={name}
+                  name={name}
+                  label={t(name)}
+                  hint={t("titleHint", { max: SEO_TITLE_MAX })}
+                  state={state}
+                  defaultValue={values[name]}
+                  maxLength={SEO_TITLE_MAX}
+                  lang={name.endsWith("Bn") ? "bn" : "en"}
+                  optional
+                />
+              ))}
+              {(["metaDescriptionBn", "metaDescriptionEn"] as const).map((name) => (
+                <TextAreaField
+                  key={name}
+                  name={name}
+                  label={t(name)}
+                  hint={t("descriptionHint", { max: SEO_DESCRIPTION_MAX })}
+                  state={state}
+                  defaultValue={values[name]}
+                  maxLength={SEO_DESCRIPTION_MAX}
+                  lang={name.endsWith("Bn") ? "bn" : "en"}
+                />
+              ))}
+            </div>
+          </fieldset>
+        </>
+      )}
+    </SectionForm>
+  );
+}
+
+function TextAreaField({
+  name,
+  label,
+  hint,
+  state,
+  defaultValue,
+  maxLength,
+  lang,
+}: {
+  name: string;
+  label: string;
+  hint: string;
+  state: ActionState;
+  defaultValue: string;
+  maxLength: number;
+  lang: string;
+}) {
+  const tc = useTranslations("common");
+  const errors = fieldErrorsOf(state, name);
+  const id = `f-${name}`;
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>
+        {label} <span className="font-normal text-neutral-500">({tc("optional")})</span>
+      </Label>
+      <textarea
+        id={id}
+        name={name}
+        defaultValue={defaultValue}
+        maxLength={maxLength}
+        lang={lang}
+        rows={3}
+        aria-invalid={errors ? true : undefined}
+        aria-describedby={`${id}-msg`}
+        className={cn(
+          "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900",
+          errors && "border-red-500",
+        )}
+      />
+      <FieldMessage id={`${id}-msg`} errors={errors} hint={hint} />
+    </div>
   );
 }
 

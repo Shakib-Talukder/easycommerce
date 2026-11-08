@@ -2,7 +2,14 @@ import { createId } from "@paralleldrive/cuid2";
 import { disconnectAll } from "@repo/db";
 import { adminClient } from "@repo/db/admin";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { launchStore, parseSection, saveSettingsSection, skipOnboardingStep } from "../src/store/settings";
+import {
+  launchStore,
+  parseSection,
+  readSeo,
+  readSocialLinks,
+  saveSettingsSection,
+  skipOnboardingStep,
+} from "../src/store/settings";
 import { deleteStores } from "./helpers";
 
 const created: string[] = [];
@@ -221,5 +228,103 @@ describe("onboarding step persistence", () => {
     await adminClient().store.update({ where: { id: other.id }, data: { status: "SUSPENDED" } });
     expect(await launchStore(other.id)).toEqual({ ok: true });
     expect((await adminClient().store.findUnique({ where: { id: other.id } }))?.status).toBe("SUSPENDED");
+  });
+});
+
+describe("social links and SEO", () => {
+  const valid = {
+    facebook: "https://www.facebook.com/notundokan",
+    instagram: "https://instagram.com/notun.dokan",
+    youtube: "https://www.youtube.com/@notundokan",
+    tiktok: "https://www.tiktok.com/@notundokan",
+    whatsapp: "০১৭১১-০০০০০০",
+    metaTitleBn: "নতুন দোকান — সেরা পণ্য",
+    metaTitleEn: "Notun Dokan — the best goods",
+    metaDescriptionBn: "ঢাকা থেকে সারা দেশে ডেলিভারি।",
+    metaDescriptionEn: "Delivery across Bangladesh from Dhaka.",
+  };
+
+  it("accepts https links on each platform's domain and a BD WhatsApp number", () => {
+    const parsed = parseSection("social", valid);
+    expect(parsed.ok && parsed.value.data).toMatchObject({
+      whatsapp: "+8801711000000",
+      tiktok: valid.tiktok,
+    });
+    expect(parseSection("social", {}).ok).toBe(true); // everything optional
+  });
+
+  it.each([
+    ["facebook", "http://facebook.com/x", "FACEBOOK_URL"],
+    ["facebook", "https://facebook.com.evil.example/x", "FACEBOOK_URL"],
+    ["facebook", "https://instagram.com/x", "FACEBOOK_URL"],
+    ["facebook", "https://facebook.com/", "FACEBOOK_URL"],
+    ["instagram", "https://user:pw@instagram.com/x", "INSTAGRAM_URL"],
+    ["youtube", "javascript:alert(1)", "YOUTUBE_URL"],
+    ["tiktok", "https://tiktok.com:8443/@x", "TIKTOK_URL"],
+    ["whatsapp", "+14155550100", "INVALID_PHONE"],
+  ])("rejects %s = %s", (field, value, code) => {
+    const parsed = parseSection("social", { [field]: value });
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error.issues.map((i) => [i.path[0], i.message])).toEqual([[field, code]]);
+  });
+
+  it("limits meta titles to 60 and descriptions to 160 characters", () => {
+    expect(
+      parseSection("social", { metaTitleBn: "অ".repeat(60), metaDescriptionEn: "x".repeat(160) }).ok,
+    ).toBe(true);
+    const tooLong = parseSection("social", {
+      metaTitleEn: "x".repeat(61),
+      metaDescriptionBn: "অ".repeat(161),
+    });
+    expect(tooLong.ok).toBe(false);
+    if (!tooLong.ok)
+      expect(tooLong.error.issues.map((i) => i.path[0]).sort()).toEqual(["metaDescriptionBn", "metaTitleEn"]);
+  });
+
+  it("saves into social_links / seo and reads them back, dropping cleared or invalid entries", async () => {
+    const store = await pendingStore();
+    const parsed = parseSection("social", valid);
+    if (!parsed.ok) throw parsed.error;
+    expect(await saveSettingsSection(store.id, parsed.value)).toEqual({ ok: true });
+    const s = await settingsOf(store.id);
+    expect(readSocialLinks(s.socialLinks)).toEqual({
+      facebook: valid.facebook,
+      instagram: valid.instagram,
+      youtube: valid.youtube,
+      tiktok: valid.tiktok,
+      whatsapp: "+8801711000000",
+    });
+    expect(readSeo(s.seo)).toEqual({
+      titleBn: valid.metaTitleBn,
+      titleEn: valid.metaTitleEn,
+      descriptionBn: valid.metaDescriptionBn,
+      descriptionEn: valid.metaDescriptionEn,
+    });
+
+    // Clearing a field removes it.
+    const cleared = parseSection("social", { ...valid, instagram: "", metaTitleEn: " " });
+    if (!cleared.ok) throw cleared.error;
+    await saveSettingsSection(store.id, cleared.value);
+    const after = await settingsOf(store.id);
+    expect(readSocialLinks(after.socialLinks).instagram).toBeUndefined();
+    expect(readSeo(after.seo).titleEn).toBeUndefined();
+
+    // JSON written by anything else is filtered on read.
+    expect(
+      readSocialLinks({ facebook: "javascript:alert(1)", whatsapp: "123", youtube: valid.youtube }),
+    ).toEqual({
+      youtube: valid.youtube,
+    });
+    expect(readSeo({ titleBn: "x".repeat(61), descriptionEn: "ok" })).toEqual({ descriptionEn: "ok" });
+  });
+
+  it("is not a wizard step", async () => {
+    const store = await pendingStore();
+    const parsed = parseSection("social", valid);
+    if (!parsed.ok) throw parsed.error;
+    expect(await saveSettingsSection(store.id, parsed.value, { completeStep: true })).toEqual({
+      ok: false,
+      error: "ONBOARDING_STEP_LOCKED",
+    });
   });
 });

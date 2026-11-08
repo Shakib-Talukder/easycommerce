@@ -5,6 +5,7 @@ import {
   ImageUploadError,
   getStorageProvider,
   isSettingsSection,
+  isSettingsTab,
   launchStore,
   parseSection,
   processAndStoreImage,
@@ -31,12 +32,19 @@ const SKIPPABLE = new Set(["branding"]);
 export async function saveSectionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const { store } = await requirePermission("settings:manage");
   const section = formData.get("section");
-  if (!isSettingsSection(section)) return failure("INVALID");
+  if (!isSettingsTab(section)) return failure("INVALID");
   const onboarding = formData.get("mode") === "onboarding";
+  // Settings-only tabs (Social & SEO) are never wizard steps.
+  if (onboarding && !isSettingsSection(section)) return failure("ONBOARDING_STEP_LOCKED");
   // After "Edit" on the review screen, return there instead of the next step.
-  const next = formData.get("return") === "finish" ? 5 : stepOf(section) + 1;
+  const next = formData.get("return") === "finish" || !isSettingsSection(section) ? 5 : stepOf(section) + 1;
 
-  if (onboarding && formData.get("intent") === "skip" && SKIPPABLE.has(section)) {
+  if (
+    onboarding &&
+    isSettingsSection(section) &&
+    formData.get("intent") === "skip" &&
+    SKIPPABLE.has(section)
+  ) {
     const skipped = await skipOnboardingStep(store.id, section);
     if (!skipped.ok) return failure(skipped.error);
     redirect(`/admin/onboarding?step=${next}`);
