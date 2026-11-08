@@ -4,7 +4,7 @@ import { getSmsProvider } from "./sms";
 
 export type { NotificationProvider, OutgoingMessage } from "./types";
 export { ConsoleEmailProvider, SmtpEmailProvider, getEmailProvider } from "./email";
-export { BulkSmsBdProvider, ConsoleSmsProvider, SMS_PROVIDERS, getSmsProvider } from "./sms";
+export * from "./sms";
 
 export type OtpMessageInput = {
   to: Identifier;

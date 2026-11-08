@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./jwt": "./src/auth/jwt.ts",
     "./sessions": "./src/auth/sessions.ts",
+    "./sms": "./src/notify/sms.ts",
     "./color": "./src/store/color.ts",
     "./locations": "./src/store/locations.ts"
   },

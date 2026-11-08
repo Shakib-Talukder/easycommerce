@@ -9,5 +9,6 @@ export type OutgoingMessage = {
 export interface NotificationProvider {
   readonly name: string;
   readonly channel: "email" | "sms";
-  send(message: OutgoingMessage): Promise<void>;
+  /** Providers that get a gateway message id return it. */
+  send(message: OutgoingMessage): Promise<void | { messageId: string | null }>;
 }
