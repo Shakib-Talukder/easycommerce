@@ -5,8 +5,10 @@ import {
   combinationLabel,
   combinations,
   optionKey,
+  slugify,
   sortAxes,
   suggestSku,
+  transliterateBangla,
   valueIdFor,
   type AxisKey,
   type OptionAxis,
@@ -108,7 +110,13 @@ export function ProductEditor({
   const touch = () => setDirty(true);
 
   const combos = useMemo(() => combinations(axes), [axes]);
-  const slugBase = basic.slug || product?.slug || "product";
+  // Same base the server uses for a new product's slug (and so for its suggested SKUs).
+  const slugBase =
+    basic.slug ||
+    product?.slug ||
+    slugify(basic.titleEn) ||
+    slugify(transliterateBangla(basic.titleBn)) ||
+    "product";
   const rowFor = (key: string): Row =>
     rows[key] ?? { sku: "", price: "", salePrice: "", stock: "", isActive: true, existing: false };
   const setRow = (key: string, patch: Partial<Row>) => {
