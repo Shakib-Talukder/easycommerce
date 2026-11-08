@@ -59,28 +59,32 @@ New stores: sign up at http://localhost:3000/signup (phone-first, see [Store sig
 
 ### Running without Docker
 
-| Service    | Fallback                                                                                                                                                                                                                                                                             |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PostgreSQL | `pnpm db:up:local`: real PostgreSQL 16 from npm binaries (data in `./.pgdata`), same roles as docker compose.                                                                                                                                                                        |
-| Redis      | `next dev` falls back to an in-memory store (one warning). `next start` runs with `NODE_ENV=production`, which refuses that fallback, so run a real Redis (e.g. in WSL, bound to 127.0.0.1) or `pnpm redis:up:local` (a small RESP server that implements only the commands we use). |
-| Storage    | `STORAGE_PROVIDER=local` writes uploads to `apps/web/public/uploads`, served by `/api/uploads/…`. Allowed under `next start` only while `ROOT_DOMAIN` is a localhost domain.                                                                                                         |
-| SMTP       | In development an unreachable SMTP server makes emails print to the console. In production it is an error. Phone logins (console SMS) need no setup.                                                                                                                                 |
+| Service    | Fallback                                                                                                                                                                                                                                                                                                                                                                                               |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PostgreSQL | `pnpm db:up:local`: real PostgreSQL 16 from npm binaries (data in `./.pgdata`), same roles as docker compose.                                                                                                                                                                                                                                                                                          |
+| Redis      | `next dev` falls back to an in-memory store (one warning). `next start` runs with `NODE_ENV=production`, which refuses that fallback, so run a real Redis (e.g. in WSL, bound to 127.0.0.1) or `pnpm redis:up:local` (a small RESP server that implements only the commands we use). With Redis in WSL, keep a WSL shell open: when the WSL VM idles out, Redis stops and the app gets `ECONNREFUSED`. |
+| Storage    | `STORAGE_PROVIDER=local` writes uploads to `apps/web/public/uploads`, served by `/api/uploads/…`. Allowed under `next start` only while `ROOT_DOMAIN` is a localhost domain.                                                                                                                                                                                                                           |
+| SMTP       | In development an unreachable SMTP server makes emails print to the console. In production it is an error (the login form shows "couldn't send the code"). Phone logins (console SMS) need no setup.                                                                                                                                                                                                   |
 
 Keep each `*:up:local` command running in its own terminal.
 
+`next start` is production mode, so it also refuses `SMS_PROVIDER=console` unless you opt in for a
+local run: `ALLOW_CONSOLE_SMS=true pnpm --filter @repo/web start` (it logs a loud warning).
+
 ## Scripts (root)
 
-| Script                                          | What it does                                                           |
-| ----------------------------------------------- | ---------------------------------------------------------------------- |
-| `dev` / `build` / `lint` / `typecheck` / `test` | Turborepo across all packages (Prisma client is generated first)       |
-| `db:up` / `db:down`                             | docker compose up (waits for healthy) / down                           |
-| `db:up:local`                                   | Docker-free PostgreSQL 16 on :5432                                     |
-| `redis:up:local`                                | Docker-free Redis-protocol dev server on 127.0.0.1:6379                |
-| `db:migrate`                                    | `prisma migrate dev` (creates its own shadow DB, owner has `CREATEDB`) |
-| `db:deploy`                                     | `prisma migrate deploy`                                                |
-| `db:seed`                                       | Idempotent demo data                                                   |
-| `db:reset`                                      | Drop, re-migrate and re-seed (dev only)                                |
-| `db:studio`                                     | Prisma Studio                                                          |
+| Script                                          | What it does                                                                    |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| `dev` / `build` / `lint` / `typecheck` / `test` | Turborepo across all packages (Prisma client is generated first)                |
+| `db:up` / `db:down`                             | docker compose up (waits for healthy) / down                                    |
+| `db:up:local`                                   | Docker-free PostgreSQL 16 on :5432                                              |
+| `redis:up:local`                                | Docker-free Redis-protocol dev server on 127.0.0.1:6379                         |
+| `storage:sweep` (`--apply`)                     | List (or delete) orphaned upload objects, see [Object storage](#object-storage) |
+| `db:migrate`                                    | `prisma migrate dev` (creates its own shadow DB, owner has `CREATEDB`)          |
+| `db:deploy`                                     | `prisma migrate deploy`                                                         |
+| `db:seed`                                       | Idempotent demo data                                                            |
+| `db:reset`                                      | Drop, re-migrate and re-seed (dev only)                                         |
+| `db:studio`                                     | Prisma Studio                                                                   |
 
 `pnpm test` runs integration tests against the database in `.env`, so start it first.
 
@@ -190,6 +194,11 @@ Email login for existing users still works; only signup is phone-only.
 - TTL `OTP_TTL_SECONDS` (default 300). At most 5 verify attempts per code. Single use (the
   `consumed_at`/KV delete is conditional, so concurrent verifies can't both win). A new code
   invalidates older unused ones.
+- **Resend cooldown: one code per identifier per 60 s** (per store for login, shared for signup), enforced on
+  the server with an atomic `SET NX EX` key. A request inside the window gets `RESEND_COOLDOWN` with
+  `secondsLeft` and sends nothing; unknown login identifiers get the same cooldown. The verify pages start
+  their countdown from the server's remaining seconds. A failed send returns `SEND_FAILED` (no 500) and
+  lifts the cooldown.
 - Rate limits (fixed window, KeyValueStore): **3 sends per identifier per 15 min** (per store,
   or per signup) and **10 sends per IP per hour**. The IP comes from the first
   `X-Forwarded-For` hop, so deploy behind a proxy that sets it.
@@ -211,26 +220,53 @@ Email login for existing users still works; only signup is phone-only.
 
 ### Environment variables
 
-| Variable                  | Purpose                                                                                  |
-| ------------------------- | ---------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | Owner role: migrations, seed, Studio                                                     |
-| `APP_DATABASE_URL`        | `app_user`, RLS enforced: all tenant traffic                                             |
-| `ADMIN_DATABASE_URL`      | `app_admin`, BYPASSRLS: host lookup, subdomain availability, platform tools              |
-| `SHADOW_DATABASE_URL`     | Optional. Empty means Prisma creates its own shadow DB                                   |
-| `REDIS_URL`               | KV + rate limits. Required in production, memory fallback in dev                         |
-| `ROOT_DOMAIN`             | e.g. `localhost:3000`; stores live at `<sub>.<ROOT_DOMAIN>`                              |
-| `JWT_SECRET`              | ≥ 32 chars. Signs sessions and peppers OTP hashes                                        |
-| `OTP_TTL_SECONDS`         | Login/signup code lifetime (default 300)                                                 |
-| `SMTP_HOST` / `SMTP_PORT` | Mailpit `localhost:1025` in dev; `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`               |
-| `SMS_PROVIDER`            | `console` (default, prints to log) or `bulksmsbd` (stub; `SMS_API_KEY`, `SMS_SENDER_ID`) |
-| `STORAGE_PROVIDER`        | `local` (dev disk) or `s3` (R2 / Spaces); see [Object storage](#object-storage)          |
-| `LOCAL_UPLOAD_DIR`        | Optional. Default `apps/web/public/uploads`                                              |
+| Variable                                      | Purpose                                                                               |
+| --------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                | Owner role: migrations, seed, Studio                                                  |
+| `APP_DATABASE_URL`                            | `app_user`, RLS enforced: all tenant traffic                                          |
+| `ADMIN_DATABASE_URL`                          | `app_admin`, BYPASSRLS: host lookup, subdomain availability, platform tools           |
+| `SHADOW_DATABASE_URL`                         | Optional. Empty means Prisma creates its own shadow DB                                |
+| `REDIS_URL`                                   | KV + rate limits. Required in production, memory fallback in dev                      |
+| `ROOT_DOMAIN`                                 | e.g. `localhost:3000`; stores live at `<sub>.<ROOT_DOMAIN>`                           |
+| `JWT_SECRET`                                  | ≥ 32 chars. Signs sessions and peppers OTP hashes                                     |
+| `OTP_TTL_SECONDS`                             | Login/signup code lifetime (default 300)                                              |
+| `SMTP_HOST` / `SMTP_PORT`                     | Mailpit `localhost:1025` in dev; `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`            |
+| `SMS_PROVIDER`                                | `console` (default, prints to log) or `bulksmsbd`, see [SMS](#sms-bulksmsbd)          |
+| `ALLOW_CONSOLE_SMS`                           | `true` lets production run with console SMS (local `next start` only)                 |
+| `SMS_API_KEY`, `SMS_SENDER_ID`, `SMS_API_URL` | BulkSMSBD credentials; URL defaults to `https://bulksmsbd.net/api/smsapi`             |
+| `SMS_TEST_NUMBER`                             | Opt-in live SMS test target (with `SMS_API_KEY`)                                      |
+| `REDIS_TEST_URL`                              | Redis for the KV contract test (default `redis://127.0.0.1:6379/15`; skipped if down) |
+| `STORAGE_PROVIDER`                            | `local` (dev disk) or `s3` (R2 / Spaces); see [Object storage](#object-storage)       |
+| `LOCAL_UPLOAD_DIR`                            | Optional. Default `apps/web/public/uploads`                                           |
 
-`pnpm test` covers OTP generation, verification, expiry, the attempt limit and single use;
+`pnpm test` covers the resend cooldown, BulkSMSBD (mocked fetch), Social & SEO validation, the
+orphan sweep, the SECURITY DEFINER hardening, OTP generation, verification, expiry, the attempt limit and single use;
 rate limits; phone normalisation; JWT tampering, expiry and cross-store rejection; revoked
 sessions; phone-first signup (tickets, limits, the subdomain race); onboarding validation and
 progress; uploads; i18n key parity and locale resolution. Day 1 decisions and gaps
 are in [docs/day-1-notes.md](docs/day-1-notes.md).
+
+### SMS (BulkSMSBD)
+
+`SMS_PROVIDER=bulksmsbd` sends through BulkSMSBD's HTTP API:
+
+```
+GET {SMS_API_URL}?api_key=…&type=text&number=8801XXXXXXXXX&senderid=…&message=…
+→ {"response_code":202,"message_id":…,"success_message":"…","error_message":""}
+```
+
+- Their official docs are behind a customer login, so this follows the commonly documented shape.
+  Check it against your account's API page before going live (`packages/core/src/notify/sms.ts`).
+- Numbers go out as `8801XXXXXXXXX`; Bangla text is UTF-8 percent-encoded. `202` is success; known
+  `10xx` codes map to typed `SmsSendError` codes (invalid number, sender ID, balance, account, IP not
+  whitelisted, …).
+- 10 s timeout. One retry only when the gateway was never reached (connection refused, DNS); never after
+  a response, a timeout or a reset, so an OTP is never sent twice.
+- Logs `[sms:bulksmsbd] sent id=<message id> to=88017*****123`, never the text or the key.
+- Server startup (`instrumentation.ts`) validates the config: in production `SMS_PROVIDER=console` is
+  refused unless `ALLOW_CONSOLE_SMS=true`.
+- Live test: set `SMS_API_KEY`, `SMS_SENDER_ID` and `SMS_TEST_NUMBER`, then `pnpm --filter @repo/core test`
+  sends one SMS to that number.
 
 ## Store signup and onboarding
 
@@ -241,7 +277,8 @@ are in [docs/day-1-notes.md](docs/day-1-notes.md).
    per hour, and **at most 3 new stores per phone per 24 h** (checked at send time and, exactly,
    inside the creation transaction under a per-phone advisory lock, using the
    `signup_store_count()` SECURITY DEFINER function so `app_user` never sees other tenants' rows).
-2. **Code**: six boxes (auto-advance, paste, Bangla digits), resend with a 60 s countdown. The
+2. **Code**: six boxes (auto-advance, paste, Bangla digits), resend with a 60 s countdown driven by the
+   server-side cooldown. The
    code lives in the KeyValueStore (5 attempts, single use). Success issues a **signup ticket**: a
    random token in the KV store (30 min, bound to the phone), set as the httpOnly cookie
    `ec_signup` on the root host. Screen 3 requires a valid ticket.
@@ -276,7 +313,23 @@ The review screen has an **Edit** link per step. **Launch store** sets
 `onboarding_completed_at`, moves the store to ACTIVE and shows the URL with a copy button.
 `/admin/settings` (OWNER) uses the same section components and validation as tabs (Identity,
 Branding, Payments, Delivery), with a save toast and an unsaved-changes warning. The
-subdomain is read-only.
+subdomain is read-only. Wizard steps must be done in order: posting a later step early returns
+`ONBOARDING_STEP_LOCKED`, and launch re-checks the identity data.
+
+**Social & SEO** (settings tab, OWNER only, not in the wizard): Facebook, Instagram, YouTube and TikTok
+links (https, on the platform's own domain, with a page path), a WhatsApp number (BD mobile), and meta
+title (≤ 60) and description (≤ 160) in Bangla and English. They're stored in `social_links` / `seo` (JSON)
+and validated by the zod schemas in `packages/core/src/store/settings.ts`; `readSocialLinks`/`readSeo` drop
+anything invalid on read.
+
+### Storefront
+
+- Header: logo, name and tagline in the store's language.
+- Footer: contact phone/email, address (district/division names from `bd-locations.json`), accepted
+  payments as badges (COD / bKash / Nagad, no wallet numbers), delivery charges inside/outside Dhaka with
+  days, the free-delivery threshold, social icons and a `wa.me` WhatsApp link.
+- `<head>`: title and description from Social & SEO in the store's language (fallback: name / tagline),
+  Open Graph + Twitter tags with the logo as an absolute `og:image`, and the store's favicon.
 
 ## Internationalisation (next-intl)
 
@@ -289,7 +342,9 @@ subdomain is read-only.
 - The বাংলা / English toggle is a plain form. In the admin it saves `users.locale` and the
   cookie; elsewhere it only sets the cookie.
 - Numbers and dates use next-intl formatters (Bangla digits for bn); money uses `formatBDT`.
-  Fonts: Inter + Noto Sans Bengali via `next/font` (self-hosted, metric-matched fallbacks).
+  Numeric message arguments use `{x, number}`, so bn shows Bangla digits.
+  Fonts: Inter + Noto Sans Bengali from `@fontsource` (woff2, weights 400–700) via `next/font/local`
+  (`app/fonts.ts`): the build never contacts Google Fonts and works offline.
 
 **Adding a string:** add the key to **both** `apps/web/messages/bn.json` and `en.json` in the
 right namespace (`common`, `auth`, `signup`, `onboarding`, `settings`, `dashboard`, `staff`,
@@ -312,7 +367,8 @@ codes, never prose: schemas use codes as zod messages, and actions translate the
   and Spaces.
 
 Upload pipeline (`processAndStoreImage(kind, …)` in `packages/core/src/images.ts`, reused by
-product images on Day 3): JPEG, PNG or WebP verified by magic bytes, ≤ 5 MB, ≥ 128 px →
+product images on Day 3): JPEG, PNG or WebP verified by magic bytes, ≤ 5 MB, ≥ 128 px, ≤ 40 megapixels
+(sharp `limitInputPixels`, checked from the header before decoding) →
 sharp (auto-orient, EXIF and metadata stripped) → logo ≤ 512×512 WebP + 64×64 favicon PNG under
 immutable keys `stores/<storeId>/logo/<cuid>.webp` and `stores/<storeId>/favicon/<cuid>.png`
 (`Cache-Control: public, max-age=31536000, immutable`). Keys outside `stores/<storeId>/` are
@@ -349,6 +405,15 @@ S3_FORCE_PATH_STYLE=false
 ASSET_PUBLIC_BASE_URL=https://easycommerce-assets.sgp1.cdn.digitaloceanspaces.com
 S3_OBJECT_ACL=public-read   # Spaces objects are private by default
 ```
+
+`/api/uploads/<key>` (local only) streams the file with its Content-Type, an ETag (304 on
+`If-None-Match`) and the immutable Cache-Control.
+
+**Orphan sweep**: `pnpm storage:sweep` lists objects under `stores/<id>/` that are older than 24 h and
+either aren't referenced by any `store_settings` row (logo/favicon keys) or belong to a deleted store.
+It's a dry run by default; `--apply` deletes them, and `--min-age-hours=N` changes the age. It works with local
+disk and S3 (`ListObjectsV2`), and runs as the BYPASSRLS admin role (it must see every store's references).
+Schedule it daily. Day 3 must add product image keys to `loadStorageReferences`.
 
 Tests use `LocalDiskProvider` and a mocked S3 client (`aws-sdk-client-mock`). One live
 upload/delete test runs only when all of `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,

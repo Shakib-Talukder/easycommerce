@@ -120,30 +120,95 @@ onboarding_step < n`). The wizard opens at `onboarding_step + 1`; finished steps
 - `packages/db` and `packages/core` test helpers and `constraints.test.ts` create stores with
   `nameBn`/`nameEn` instead of `name`.
 
+## Phase 2: audit follow-up (2026-11-08)
+
+An independent audit ([day-2-audit.md](day-2-audit.md)) found 3 P0s and 7 P1s. All were fixed, one
+commit per fix (`606aaa8` … `7d0f47d`).
+
+### Decisions
+
+- **Wizard order is enforced in core**, not just by the page: `saveSettingsSection`/`skipOnboardingStep`
+  in wizard mode refuse a step whose predecessors aren't done (`ONBOARDING_STEP_LOCKED`), and
+  `onboarding_step` only moves n-1 → n. `launchStore` also re-checks contact phone + division/district.
+- **`day2_hardening` migration** loops over every SECURITY DEFINER function in `public` (only
+  `signup_store_count` today): `search_path = pg_catalog, public`, EXECUTE revoked from PUBLIC and
+  app_admin, granted to app_user, and `ALTER DEFAULT PRIVILEGES … REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC`.
+  `packages/db/test/security.test.ts` checks pg_proc.
+- **Pixel limit 40 MP** (`IMAGE_MAX_PIXELS`), set as `limitInputPixels` on every sharp call and checked
+  from the header before decoding; maps to the existing `UPLOAD_TOO_LARGE` (message now mentions both limits).
+- **BulkSMSBD**: the official docs are behind a login (the public pages are 404/403/sign-in), so the
+  provider follows the commonly documented `GET ?api_key&type=text&number&senderid&message` shape, with
+  `202` as success and the commonly listed `10xx` codes. **Verify both against your account's API page.**
+  `type=text` is used for Bangla too, as in those docs; if your account requires `unicode` for Bangla,
+  change it in `BulkSmsBdProvider.url()`.
+  - It retries once, only on connection-level errors (ECONNREFUSED, ENOTFOUND, EAI_AGAIN, unreachable).
+    A timeout or ECONNRESET may already have delivered the SMS, so those aren't retried.
+  - The env var is `SMS_API_URL` (Day 1 read `SMS_BASE_URL`, which was never documented).
+  - "Production refuses console SMS" runs in `instrumentation.ts` `register()`, so `next start` fails to
+    boot. It's also checked on every provider lookup. A local `next start` needs `ALLOW_CONSOLE_SMS=true`.
+    Unlike Redis/storage, I didn't add a localhost exception, because the spec asked for an explicit flag.
+- **Cooldown**: KV key `otp-cooldown:<scope>:<identifier>` claimed with `SET NX EX 60` (new
+  `KeyValueStore.setIfAbsent`; `secondsLeft` comes from the new `ttl`). The cooldown is checked before
+  the 15-min/hourly limits, so waiting doesn't use up the budget, and claimed after them. A failed send
+  lifts it and returns `SEND_FAILED` instead of a 500. `/admin/verify` got a Resend button.
+- **Social & SEO** is a settings-only tab (`SETTINGS_TABS` = wizard sections + `social`). Only set keys
+  are stored in the JSON columns. `readSocialLinks`/`readSeo` re-validate on read, so a bad value written
+  some other way can't reach the storefront as a link. Allowed hosts: facebook.com/fb.com,
+  instagram.com, youtube.com/youtu.be, tiktok.com (and their subdomains), https only, no credentials or
+  odd ports, and a non-empty path.
+- **Storefront metadata**: `metadataBase` is the request host, so `og:image` is absolute for local
+  uploads too. The title falls back to the store name and the description to the tagline. Social icons are
+  simple original line icons, not the platforms' logos.
+- **Sweep**: age is the object's mtime / S3 LastModified. Anything younger than 24 h is kept, so an
+  upload whose DB save is still in flight is safe. Objects of deleted stores are orphans too, but only
+  after 24 h. It runs as the BYPASSRLS admin role (platform tooling).
+- **Fonts**: `@fontsource/inter` + `@fontsource/noto-sans-bengali` 5.3.0 via `next/font/local` (literal
+  `src` arrays: next/font can't evaluate `.map`). Noto Sans Bengali isn't preloaded.
+- **Bangla digits**: numeric ICU arguments are `{x, number}` (a plain `{x}` is stringified, so bn showed
+  "ধাপ 1/5").
+- Smaller: "Start over" on `/signup/store` is a server action that drops the ticket. Production refuses
+  the `.env.example` `JWT_SECRET` (except on a localhost ROOT_DOMAIN). The unused `findStoreBySubdomain`
+  (BYPASSRLS) was removed.
+
+### Environment notes
+
+- Redis 8 runs in WSL. The WSL VM shuts down when no `wsl.exe` process is attached, which takes Redis
+  with it (intermittent `ECONNREFUSED`). During the run a background `wsl.exe sleep` kept it up.
+- Email OTP under `next start` needs a reachable SMTP server (production refuses the console fallback).
+  The live check used a throwaway SMTP sink on 127.0.0.1:1025.
+- `next start` ran on port 3000 with `ROOT_DOMAIN=localhost:3000` and `ALLOW_CONSOLE_SMS=true`.
+
+### Tests changed intentionally (Phase 2)
+
+- `core/test/auth.test.ts`, `signup.test.ts`: send results now include `cooldownSeconds`. The two
+  "4th send is rate-limited" tests advance a fake clock 61 s between sends. Signup's `ticketFor()` lifts
+  the cooldown, so the store-limit tests can open several stores per phone in a row.
+- `core/test/onboarding.test.ts` "never re-activates a suspended store" now seeds identity data, because
+  launch requires it.
+- `core/test/infra.test.ts`: the Redis contract test runs against a real Redis (`REDIS_TEST_URL`, default
+  DB 15 on 127.0.0.1:6379, unique key prefix, skipped if unreachable) instead of spawning
+  `scripts/local-redis.ts`. The script itself is unchanged.
+
 ## What's stubbed
 
-- `BulkSmsBdProvider.send` still throws "not implemented".
-- No live R2/Spaces upload was run (no credentials); the opt-in test is skipped.
-- The storefront doesn't show taglines, wallets or delivery info yet; checkout needs those (Day 3).
-- Social links and SEO fields still aren't editable.
+- No live BulkSMSBD send was run (no `SMS_API_KEY` / `SMS_TEST_NUMBER`); the opt-in test is skipped.
+- No live R2/Spaces upload was run (no `S3_*`); the opt-in test is skipped.
+- Checkout still needs the wallet numbers (Day 3); the storefront shows payment badges only.
 
 ## Known gaps and risks
 
-- **Day 1 acceptance script**: it drove the old single-form signup and is superseded by the Day 2
-  script. The Day 1 behaviours it covered (cookie flags, cross-store cookie, logout, 403) are
-  re-checked in unit tests and partly in the Day 2 run.
-- **360 px layout**: built mobile-first (single-column forms, a wrapping header, a scrollable tab
-  bar, the OTP boxes fit 6 × 44 px + gaps), but not verified in a real browser at 360 px.
-- No **image dimension limit beyond sharp's default** `limitInputPixels` (~268 MP); a 5 MB
-  "decompression bomb" PNG is bounded by that default.
-- The `/api/uploads` route reads the whole file into memory; fine for ≤ 512 px logos, but use
-  streaming (or the CDN) for product images.
-- Orphaned objects are possible if the process dies between upload and DB save. Needs a
-  periodic sweep of `stores/<id>/` against referenced keys (Day 3+).
-- Changing the subdomain is out of scope; deleting a store doesn't delete its objects.
-- The subdomain-check rate limit is per IP and fixed-window, like the other limits.
-- Client-side resend countdown only; the server enforces 3 sends per 15 min, not a 60 s cooldown.
-- Fonts come from Google Fonts at **build** time (next/font). Offline builds fail.
+- **BulkSMSBD API shape and codes are unverified** against the official (login-only) docs.
+- **Day 1 acceptance script**: superseded by the Day 2 run (see above). Cookie flags, cross-store cookie,
+  logout, rolling refresh, 403 and unknown-store 404 were re-checked live in this audit.
+- **360 px layout** still not checked in a real browser.
+- Changing the subdomain is out of scope. Deleting a store doesn't delete its objects right away;
+  `pnpm storage:sweep --apply` removes them after 24 h. Nothing schedules the sweep yet.
+- The sweep only knows logo/favicon keys. Day 3 must add product image keys to
+  `loadStorageReferences` before product uploads ship, or the sweep would delete product images.
+- The subdomain-check and OTP limits are fixed-window per IP (see Day 1 notes on `X-Forwarded-For`).
+- Without JavaScript the Resend button isn't disabled during the countdown. The server still refuses
+  with RESEND_COOLDOWN.
+- Day 2 steps 1–5 don't typecheck on their own (audit J); history was left as is.
 
 ## Day 3 plan
 
