@@ -8,7 +8,7 @@ import {
 import { formatBDT, takaToPoisha } from "@repo/db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from "@repo/ui";
 import type { Metadata } from "next";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
@@ -45,7 +45,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
   const { store } = await requireRole("OWNER");
   if (store.onboardingCompleted) redirect("/admin");
   const { values, settings } = await loadSettingsValues(store.id);
-  const t = await getTranslations("onboarding");
+  const [t, format] = await Promise.all([getTranslations("onboarding"), getFormatter()]);
 
   // Resume at the first unfinished step; earlier (finished) steps can be revisited, later ones can't.
   const resume = Math.min(settings.onboardingStep + 1, FINISH);
@@ -92,7 +92,7 @@ export default async function OnboardingPage({ searchParams }: Props) {
                         : "border-neutral-300 text-neutral-400 dark:border-neutral-700",
                   )}
                 >
-                  {n <= done && n !== step ? "✓" : n}
+                  {n <= done && n !== step ? "✓" : format.number(n)}
                 </span>
                 <span className="line-clamp-2 text-center">{label}</span>
               </>

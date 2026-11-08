@@ -2,11 +2,11 @@ import { readSignupTicket } from "@repo/core";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { StoreDetailsForm } from "@/components/signup-forms";
 import { SignupShell } from "@/components/signup-shell";
 import { SIGNUP_TICKET_COOKIE } from "@/lib/signup";
+import { restartSignupAction } from "@/server/actions/signup";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getTranslations("signup"))("storeTitle") };
@@ -23,9 +23,11 @@ export default async function SignupStorePage() {
         {ticket.phone}
       </p>
       <StoreDetailsForm rootDomain={process.env.ROOT_DOMAIN ?? "localhost:3000"} />
-      <Link href="/signup" className="text-center text-sm underline">
-        {t("startOver")}
-      </Link>
+      <form action={restartSignupAction} className="text-center">
+        <button type="submit" className="text-sm underline" data-start-over>
+          {t("startOver")}
+        </button>
+      </form>
     </SignupShell>
   );
 }

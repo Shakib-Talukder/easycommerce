@@ -197,12 +197,19 @@ export function StoreDetailsForm({ rootDomain }: { rootDomain: string }) {
   return (
     <form action={action} className="flex flex-col gap-4" noValidate>
       <FormMessage state={state} />
-      <Field name="nameBn" label={t("nameBn")} state={state} placeholder="নতুন দোকান" required autoFocus />
+      <Field
+        name="nameBn"
+        label={t("nameBn")}
+        state={state}
+        placeholder={t("placeholders.nameBn")}
+        required
+        autoFocus
+      />
       <Field
         name="nameEn"
         label={t("nameEn")}
         state={state}
-        placeholder="Notun Dokan"
+        placeholder={t("placeholders.nameEn")}
         value={nameEn}
         onChange={(e) => onNameEn(e.target.value)}
         required
@@ -221,7 +228,7 @@ export function StoreDetailsForm({ rootDomain }: { rootDomain: string }) {
           autoCorrect="off"
           spellCheck={false}
           inputMode="url"
-          placeholder="notun-dokan"
+          placeholder={t("placeholders.subdomain")}
           invalid={Boolean(serverErrors) || (check ? !check.available : false)}
           aria-describedby="f-subdomain-msg f-subdomain-url"
           required

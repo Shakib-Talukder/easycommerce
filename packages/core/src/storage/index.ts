@@ -1,5 +1,5 @@
 import path from "node:path";
-import { isProduction, rootDomain } from "../env";
+import { isLocalRootDomain, isProduction, rootDomain } from "../env";
 import { LocalDiskProvider } from "./local";
 import { S3CompatibleProvider } from "./s3";
 import type { StorageProvider } from "./types";
@@ -21,8 +21,7 @@ export { sweepOrphans, type SweepOptions, type SweepResult } from "./sweep";
  * this is what decides whether local disk storage is allowed there.
  */
 export function isLocalDeployment(domain: string = rootDomain()): boolean {
-  const host = domain.trim().toLowerCase().replace(/:\d+$/, "");
-  return host === "localhost" || host.endsWith(".localhost") || host === "127.0.0.1";
+  return isLocalRootDomain(domain);
 }
 
 /** Selects storage by STORAGE_PROVIDER ("local" | "s3"). Production refuses local disk. */

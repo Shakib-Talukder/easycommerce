@@ -52,7 +52,8 @@
   "signup": {
     "metaTitle": "দোকান খুলুন",
     "title": "দোকান খুলুন",
-    "stepOf": "ধাপ {current}/{total}",
+    "stepOf": "ধাপ {current, number}/{total, number}",
+    "placeholders": { "nameBn": "নতুন দোকান", "nameEn": "Notun Dokan", "subdomain": "notun-dokan" },
     "phoneTitle": "আপনার মোবাইল নম্বর",
     "phoneHint": "বাংলাদেশি মোবাইল নম্বর, যেমন 01711000000। আমরা একটি কোড পাঠাব।",
     "phoneLabel": "মোবাইল নম্বর",
@@ -60,10 +61,10 @@
     "otpTitle": "কোড দিন",
     "otpSent": "{phone} নম্বরে একটি ৬ সংখ্যার কোড পাঠানো হয়েছে।",
     "otpLabel": "৬ সংখ্যার কোড",
-    "digitLabel": "৬টির মধ্যে {n} নম্বর সংখ্যা",
+    "digitLabel": "৬টির মধ্যে {n, number} নম্বর সংখ্যা",
     "verify": "যাচাই করুন",
     "resend": "আবার কোড পাঠান",
-    "resendIn": "{seconds} সেকেন্ড পরে আবার পাঠানো যাবে",
+    "resendIn": "{seconds, number} সেকেন্ড পরে আবার পাঠানো যাবে",
     "resent": "নতুন কোড পাঠানো হয়েছে।",
     "changePhone": "অন্য নম্বর ব্যবহার করুন",
     "storeTitle": "দোকানের তথ্য",
@@ -87,8 +88,8 @@
   "onboarding": {
     "metaTitle": "দোকান সেটআপ",
     "title": "দোকান সেটআপ করুন",
-    "progress": "{total}টির মধ্যে {done}টি ধাপ সম্পন্ন",
-    "stepOf": "ধাপ {current}/{total}",
+    "progress": "{total, number}টির মধ্যে {done, number}টি ধাপ সম্পন্ন",
+    "stepOf": "ধাপ {current, number}/{total, number}",
     "steps": {
       "identity": "দোকানের পরিচয়",
       "branding": "লোগো ও রং",
@@ -144,12 +145,22 @@
       "secondaryColor": "সহায়ক রং",
       "palettes": "রঙের সেট",
       "palette": "রঙের সেট {name}",
+      "paletteNames": {
+        "green": "সবুজ",
+        "teal": "টিল",
+        "blue": "নীল",
+        "indigo": "নীলাভ বেগুনি",
+        "rose": "গোলাপি",
+        "orange": "কমলা",
+        "purple": "বেগুনি",
+        "slate": "ধূসর"
+      },
       "suggested": "লোগো থেকে প্রস্তাবিত রং",
       "useSuggested": "এই রং ব্যবহার করুন",
       "preview": "প্রিভিউ",
       "previewProduct": "সুতির পাঞ্জাবি",
       "previewButton": "অর্ডার করুন",
-      "contrastWarning": "এই রঙের উপর সাদা লেখা পড়া কঠিন (কনট্রাস্ট {ratio}:১; অন্তত ৪.৫:১ হওয়া ভালো)।"
+      "contrastWarning": "এই রঙের উপর সাদা লেখা পড়া কঠিন (কনট্রাস্ট {ratio, number}:১; অন্তত ৪.৫:১ হওয়া ভালো)।"
     },
     "payments": {
       "cod": "ক্যাশ অন ডেলিভারি",
@@ -212,7 +223,7 @@
   },
   "storefront": {
     "noProducts": "এখনো কোনো পণ্য নেই।",
-    "inStock": "স্টকে {count}টি",
+    "inStock": "স্টকে {count, number}টি",
     "soldOut": "স্টক শেষ",
     "orderSoon": "অর্ডার করুন (শীঘ্রই)",
     "cod": "ক্যাশ অন ডেলিভারি",

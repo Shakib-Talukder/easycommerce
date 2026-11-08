@@ -52,7 +52,8 @@
   "signup": {
     "metaTitle": "Open your store",
     "title": "Open your store",
-    "stepOf": "Step {current} of {total}",
+    "stepOf": "Step {current, number} of {total, number}",
+    "placeholders": { "nameBn": "নতুন দোকান", "nameEn": "Notun Dokan", "subdomain": "notun-dokan" },
     "phoneTitle": "Your mobile number",
     "phoneHint": "A Bangladeshi mobile number, for example 01711000000. We'll text you a code.",
     "phoneLabel": "Mobile number",
@@ -60,10 +61,10 @@
     "otpTitle": "Enter the code",
     "otpSent": "We sent a 6-digit code to {phone}.",
     "otpLabel": "6-digit code",
-    "digitLabel": "Digit {n} of 6",
+    "digitLabel": "Digit {n, number} of 6",
     "verify": "Verify",
     "resend": "Resend code",
-    "resendIn": "Resend in {seconds}s",
+    "resendIn": "Resend in {seconds, number}s",
     "resent": "A new code is on its way.",
     "changePhone": "Use a different number",
     "storeTitle": "Store details",
@@ -87,8 +88,8 @@
   "onboarding": {
     "metaTitle": "Store setup",
     "title": "Set up your store",
-    "progress": "{done} of {total} steps done",
-    "stepOf": "Step {current} of {total}",
+    "progress": "{done, number} of {total, number} steps done",
+    "stepOf": "Step {current, number} of {total, number}",
     "steps": {
       "identity": "Store identity",
       "branding": "Logo and colours",
@@ -144,12 +145,22 @@
       "secondaryColor": "Secondary colour",
       "palettes": "Palettes",
       "palette": "Palette {name}",
+      "paletteNames": {
+        "green": "Green",
+        "teal": "Teal",
+        "blue": "Blue",
+        "indigo": "Indigo",
+        "rose": "Rose",
+        "orange": "Orange",
+        "purple": "Purple",
+        "slate": "Slate"
+      },
       "suggested": "Suggested from your logo",
       "useSuggested": "Use this colour",
       "preview": "Preview",
       "previewProduct": "Cotton panjabi",
       "previewButton": "Order now",
-      "contrastWarning": "White text on this colour is hard to read (contrast {ratio}:1; aim for at least 4.5:1)."
+      "contrastWarning": "White text on this colour is hard to read (contrast {ratio, number}:1; aim for at least 4.5:1)."
     },
     "payments": {
       "cod": "Cash on delivery",
@@ -212,7 +223,7 @@
   },
   "storefront": {
     "noProducts": "No products yet.",
-    "inStock": "{count} in stock",
+    "inStock": "{count, number} in stock",
     "soldOut": "Sold out",
     "orderSoon": "Order now (coming soon)",
     "cod": "Cash on delivery",

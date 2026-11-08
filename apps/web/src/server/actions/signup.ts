@@ -110,3 +110,9 @@ export async function createStoreAction(_prev: ActionState, formData: FormData):
     `${await requestProtocol()}://${result.store.subdomain}.${root}/admin/handoff?t=${encodeURIComponent(token)}`,
   );
 }
+
+/** "Start over" on screen 3: drops the signup ticket, so /signup no longer skips ahead. */
+export async function restartSignupAction(): Promise<void> {
+  (await cookies()).delete(SIGNUP_TICKET_COOKIE);
+  redirect("/signup");
+}

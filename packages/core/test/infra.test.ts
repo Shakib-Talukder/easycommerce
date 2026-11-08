@@ -183,6 +183,21 @@ describe("session JWT", () => {
   });
 });
 
+describe("JWT_SECRET", () => {
+  it("refuses the .env.example value in a real production deployment only", async () => {
+    const { EXAMPLE_JWT_SECRET, jwtSecret } = await import("../src/env");
+    vi.stubEnv("JWT_SECRET", EXAMPLE_JWT_SECRET);
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ROOT_DOMAIN", "example.com");
+    expect(() => jwtSecret()).toThrow(/env.example/);
+    vi.stubEnv("ROOT_DOMAIN", "localhost:3000");
+    expect(() => jwtSecret()).not.toThrow();
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("ROOT_DOMAIN", "example.com");
+    expect(() => jwtSecret()).not.toThrow();
+  });
+});
+
 describe("RBAC", () => {
   it("gives STAFF no settings or staff management", () => {
     expect(can("OWNER", "settings:manage")).toBe(true);

@@ -3,6 +3,7 @@
 import { AA_CONTRAST, PALETTES, contrastRatio } from "@repo/core/color";
 import { DIVISIONS, findDivision } from "@repo/core/locations";
 import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX } from "@repo/core/social";
+import { formatBDT } from "@repo/db/money";
 import { Button, Input, Label, cn } from "@repo/ui";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -252,7 +253,7 @@ export function BrandingSection({ values, mode }: SectionProps) {
                   <button
                     key={p.id}
                     type="button"
-                    aria-label={t("palette", { name: p.id })}
+                    aria-label={t("palette", { name: t(`paletteNames.${p.id as PaletteId}`) })}
                     aria-pressed={primary === p.primary && secondary === p.secondary}
                     onClick={() => {
                       setPrimary(p.primary);
@@ -398,10 +399,12 @@ function ContrastWarning({ color }: { color: string }) {
       data-contrast-warning
       className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"
     >
-      {t("contrastWarning", { ratio: ratio.toFixed(1) })}
+      {t("contrastWarning", { ratio: Math.floor(ratio * 10) / 10 })}
     </p>
   );
 }
+
+type PaletteId = "green" | "teal" | "blue" | "indigo" | "rose" | "orange" | "purple" | "slate";
 
 function StorefrontPreview({
   name,
@@ -415,6 +418,7 @@ function StorefrontPreview({
   secondary: string;
 }) {
   const t = useTranslations("settings.branding");
+  const locale = useLocale();
   return (
     <figure className="flex flex-col gap-2">
       <figcaption className="text-sm font-medium">{t("preview")}</figcaption>
@@ -430,7 +434,7 @@ function StorefrontPreview({
           <div className="min-w-0">
             <p className="truncate text-sm font-medium">{t("previewProduct")}</p>
             <p className="text-sm font-semibold" style={{ color: primary }}>
-              ৳১,৮৫০
+              {formatBDT(185_000, locale)}
             </p>
           </div>
           <span

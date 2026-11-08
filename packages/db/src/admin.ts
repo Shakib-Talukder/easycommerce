@@ -32,11 +32,3 @@ export async function findStoreByHost(host: string, rootDomain: string): Promise
     target.kind === "subdomain" ? { subdomain: target.subdomain } : { customDomain: target.domain };
   return adminClient().store.findUnique({ where, select: storeSelect });
 }
-
-export async function findStoreBySubdomain(subdomain: string): Promise<ResolvedStore | null> {
-  const store = await adminClient().store.findUnique({
-    where: { subdomain: subdomain.toLowerCase() },
-    select: storeSelect,
-  });
-  return store?.status === "ACTIVE" ? store : null;
-}
