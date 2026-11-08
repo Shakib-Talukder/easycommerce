@@ -17,3 +17,4 @@ export * from "./images";
 export * from "./store/color";
 export * from "./store/locations";
 export * from "./store/settings";
+export * from "./catalog";

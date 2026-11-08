@@ -5,6 +5,8 @@ export type StoredObject = { key: string; size: number; lastModified: Date };
 export interface StorageProvider {
   readonly kind: "local" | "s3";
   put(key: string, body: Buffer, contentType: string, cacheControl: string): Promise<void>;
+  /** Server-side copy to a new key (same content type and cache headers). */
+  copy(fromKey: string, toKey: string): Promise<void>;
   /** Idempotent: deleting a missing key is not an error. */
   delete(key: string): Promise<void>;
   /** URL a browser can load the object from (CDN, public bucket, or the dev route). */

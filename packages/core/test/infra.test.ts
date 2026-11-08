@@ -205,6 +205,13 @@ describe("RBAC", () => {
     expect(can("STAFF", "staff:manage")).toBe(false);
     expect(can("STAFF", "dashboard:view")).toBe(true);
   });
+
+  it("lets STAFF manage the catalogue but only OWNER delete permanently", () => {
+    expect(can("STAFF", "catalog:manage")).toBe(true);
+    expect(can("OWNER", "catalog:manage")).toBe(true);
+    expect(can("STAFF", "catalog:delete")).toBe(false);
+    expect(can("OWNER", "catalog:delete")).toBe(true);
+  });
 });
 
 describe("SMS providers", () => {

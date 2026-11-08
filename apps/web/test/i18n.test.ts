@@ -52,6 +52,12 @@ describe("messages", () => {
       const src = readFileSync(file, "utf8");
       for (const m of src.matchAll(/error: "([A-Z_]+)"/g)) codes.add(m[1]!);
       for (const m of src.matchAll(/message: "([A-Z_]+)"/g)) codes.add(m[1]!);
+      // Codes passed straight to zod (e.g. .min(1, "REQUIRED"), intFrom("INVALID_STOCK", …)) in schema files.
+      if (/schemas?.ts$|settings.ts$/.test(file)) {
+        const enumValues = new Set(["DRAFT", "ACTIVE", "ARCHIVED", "PERSONAL", "AGENT", "MERCHANT"]);
+        for (const m of src.matchAll(/[(,]s*"([A-Z][A-Z_]{3,})"/g))
+          if (!enumValues.has(m[1]!)) codes.add(m[1]!);
+      }
     }
     expect(codes.size).toBeGreaterThan(10);
     const known = Object.keys(en.errors);

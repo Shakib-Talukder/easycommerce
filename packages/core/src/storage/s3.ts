@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -71,6 +72,21 @@ export class S3CompatibleProvider implements StorageProvider {
         Body: body,
         ContentType: contentType,
         CacheControl: cacheControl,
+        ...(this.config.acl ? { ACL: this.config.acl } : {}),
+      }),
+    );
+  }
+
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    assertSafeKey(fromKey);
+    assertSafeKey(toKey);
+    await this.client.send(
+      new CopyObjectCommand({
+        Bucket: this.config.bucket,
+        Key: toKey,
+        // Keys are [a-z0-9._/-] only (assertSafeKey), so no further encoding is needed.
+        CopySource: `${this.config.bucket}/${fromKey}`,
+        MetadataDirective: "COPY",
         ...(this.config.acl ? { ACL: this.config.acl } : {}),
       }),
     );

@@ -1,5 +1,5 @@
 import { createReadStream, type ReadStream } from "node:fs";
-import { mkdir, readFile, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSafeKey, isSafeKey, type StorageProvider, type StoredObject } from "./types";
 
@@ -29,6 +29,12 @@ export class LocalDiskProvider implements StorageProvider {
     const file = this.pathFor(key);
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, body);
+  }
+
+  async copy(fromKey: string, toKey: string): Promise<void> {
+    const to = this.pathFor(toKey);
+    await mkdir(path.dirname(to), { recursive: true });
+    await copyFile(this.pathFor(fromKey), to);
   }
 
   async delete(key: string): Promise<void> {
