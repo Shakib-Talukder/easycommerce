@@ -244,6 +244,48 @@
     "whatsappChat": "Chat on WhatsApp",
     "social": { "facebook": "Facebook", "instagram": "Instagram", "youtube": "YouTube", "tiktok": "TikTok" }
   },
+  "catalog": {
+    "images": {
+      "title": "Photos",
+      "hint": "Up to {max, number} photos. Phone photos are resized and compressed before upload; the first photo is the cover.",
+      "choose": "Choose photos",
+      "takePhoto": "Take photo",
+      "remaining": "{count, plural, =0 {No more photos can be added} one {# more photo can be added} other {# more photos can be added}}",
+      "status": {
+        "compressing": "Compressing…",
+        "queued": "Waiting…",
+        "uploading": "Uploading {percent, number}%",
+        "done": "Uploaded",
+        "error": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "sizes": "{before} → {after}",
+      "mb": "{value, number} MB",
+      "kb": "{value, number} KB",
+      "retry": "Retry",
+      "cancel": "Cancel",
+      "dismiss": "Remove from list",
+      "undecodable": "This photo can't be read by your browser (often an iPhone HEIC photo). In the camera settings choose \"Most compatible\" (JPEG), or pick a JPEG/PNG photo.",
+      "overLimit": "Only {max, number} photos per product: this one was not added.",
+      "cover": "Cover",
+      "makeCover": "Make cover",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "dragHint": "Drag to reorder",
+      "altBn": "Description (বাংলা)",
+      "altEn": "Description (English)",
+      "delete": "Delete photo",
+      "deleteConfirm": "Delete this photo?",
+      "yesDelete": "Yes, delete",
+      "keep": "Keep",
+      "colourPhotos": "Photo for each colour",
+      "colourPhotosHint": "Shoppers who pick this colour see this photo.",
+      "noLink": "No photo",
+      "photoN": "Photo {n, number}",
+      "saveFirst": "Save the product first, then add photos.",
+      "empty": "No photos yet."
+    }
+  },
   "errors": {
     "VALIDATION": "Please fix the highlighted fields.",
     "UNKNOWN": "Something went wrong. Please try again.",
@@ -280,7 +322,7 @@
     "UPLOAD_MISSING": "Choose an image to upload.",
     "UPLOAD_TYPE": "Only JPG, PNG or WebP images can be uploaded.",
     "UPLOAD_TOO_LARGE": "The image is too large (max 5 MB and 40 megapixels).",
-    "UPLOAD_TOO_SMALL": "The image must be at least 128 × 128 pixels.",
+    "UPLOAD_TOO_SMALL": "The image must be at least {min, number} × {min, number} pixels.",
     "UPLOAD_INVALID": "This image file is damaged or can't be read.",
     "KEY_OUTSIDE_PREFIX": "That file doesn't belong to this store.",
     "ONBOARDING_STEP_LOCKED": "Finish the earlier steps first.",
@@ -311,6 +353,7 @@
     "NOTHING_SELECTED": "Select at least one product.",
     "IMAGE_LIMIT": "A product can have at most 10 photos.",
     "IMAGE_NOT_FOUND": "That photo doesn't exist.",
-    "FORBIDDEN": "You don't have permission to do this."
+    "FORBIDDEN": "You don't have permission to do this.",
+    "UNAUTHENTICATED": "Please log in again."
   }
 }

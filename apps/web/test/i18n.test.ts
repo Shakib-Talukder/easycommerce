@@ -14,7 +14,10 @@ function keys(tree: Tree, prefix = ""): string[] {
 }
 
 /** {name} / {count, plural, …} argument names used by a message. */
-const args = (message: string) => [...message.matchAll(/\{(\w+)/g)].map((m) => m[1]).sort();
+// Placeholders only ({name} or {name, …}), not words inside plural branches ({No more …}).
+// Unique, since a message may use one argument twice ({min} × {min}).
+const args = (message: string) =>
+  [...new Set([...message.matchAll(/\{(\w+)\s*[,}]/g)].map((m) => m[1]))].sort();
 
 describe("messages", () => {
   it("bn.json and en.json have identical key sets", () => {

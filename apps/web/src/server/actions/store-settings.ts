@@ -97,7 +97,7 @@ export async function uploadLogoAction(_prev: ActionState, formData: FormData): 
       data: { logoUrl: image.variants.logo.url, suggestedColor: image.dominantColor },
     };
   } catch (error) {
-    if (error instanceof ImageUploadError) return failure(error.code);
+    if (error instanceof ImageUploadError) return failure(error.code, undefined, error.values);
     if (error instanceof ForeignKeyError) return failure(error.code);
     throw error;
   }

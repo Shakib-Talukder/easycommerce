@@ -65,9 +65,15 @@ export type ImageErrorCode =
   | "UPLOAD_INVALID";
 
 export class ImageUploadError extends Error {
-  constructor(readonly code: ImageErrorCode) {
+  /** Message values, e.g. { min: 300 } for UPLOAD_TOO_SMALL. */
+  readonly values: Record<string, number>;
+  constructor(
+    readonly code: ImageErrorCode,
+    values: Record<string, number> = {},
+  ) {
     super(code);
     this.name = "ImageUploadError";
+    this.values = values;
   }
 }
 
@@ -114,7 +120,8 @@ export async function processAndStoreImage<K extends ImageKind>(
     throw new ImageUploadError("UPLOAD_INVALID");
   }
   if (width * height > IMAGE_MAX_PIXELS) throw new ImageUploadError("UPLOAD_TOO_LARGE");
-  if (Math.min(width, height) < IMAGE_MIN_PX_BY_KIND[kind]) throw new ImageUploadError("UPLOAD_TOO_SMALL");
+  const min = IMAGE_MIN_PX_BY_KIND[kind];
+  if (Math.min(width, height) < min) throw new ImageUploadError("UPLOAD_TOO_SMALL", { min });
 
   const storage = input.storage ?? getStorageProvider();
   const stored: StoredImage[] = [];

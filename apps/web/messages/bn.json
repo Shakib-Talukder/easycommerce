@@ -244,6 +244,48 @@
     "whatsappChat": "হোয়াটসঅ্যাপে মেসেজ করুন",
     "social": { "facebook": "ফেসবুক", "instagram": "ইনস্টাগ্রাম", "youtube": "ইউটিউব", "tiktok": "টিকটক" }
   },
+  "catalog": {
+    "images": {
+      "title": "ছবি",
+      "hint": "সর্বোচ্চ {max, number}টি ছবি। ফোনের ছবি আপলোডের আগে ছোট ও হালকা করা হয়; প্রথম ছবিটি প্রচ্ছদ।",
+      "choose": "ছবি বেছে নিন",
+      "takePhoto": "ছবি তুলুন",
+      "remaining": "{count, plural, =0 {আর কোনো ছবি যোগ করা যাবে না} other {আরও #টি ছবি যোগ করা যাবে}}",
+      "status": {
+        "compressing": "ছোট করা হচ্ছে…",
+        "queued": "অপেক্ষায়…",
+        "uploading": "আপলোড হচ্ছে {percent, number}%",
+        "done": "আপলোড হয়েছে",
+        "error": "ব্যর্থ হয়েছে",
+        "cancelled": "বাতিল"
+      },
+      "sizes": "{before} → {after}",
+      "mb": "{value, number} MB",
+      "kb": "{value, number} KB",
+      "retry": "আবার চেষ্টা",
+      "cancel": "বাতিল",
+      "dismiss": "তালিকা থেকে সরান",
+      "undecodable": "আপনার ব্রাউজার এই ছবিটি পড়তে পারছে না (প্রায়ই iPhone-এর HEIC ছবি)। ক্যামেরার সেটিংসে \"Most compatible\" (JPEG) বেছে নিন, অথবা JPEG/PNG ছবি দিন।",
+      "overLimit": "একটি পণ্যে সর্বোচ্চ {max, number}টি ছবি: এটি যোগ করা হয়নি।",
+      "cover": "প্রচ্ছদ",
+      "makeCover": "প্রচ্ছদ বানান",
+      "moveUp": "উপরে নিন",
+      "moveDown": "নিচে নিন",
+      "dragHint": "টেনে ক্রম বদলান",
+      "altBn": "বিবরণ (বাংলা)",
+      "altEn": "বিবরণ (English)",
+      "delete": "ছবি মুছুন",
+      "deleteConfirm": "ছবিটি মুছবেন?",
+      "yesDelete": "হ্যাঁ, মুছুন",
+      "keep": "রাখুন",
+      "colourPhotos": "প্রতিটি রঙের ছবি",
+      "colourPhotosHint": "ক্রেতা এই রং বেছে নিলে এই ছবিটি দেখবেন।",
+      "noLink": "কোনো ছবি নয়",
+      "photoN": "ছবি {n, number}",
+      "saveFirst": "আগে পণ্যটি সেভ করুন, তারপর ছবি যোগ করুন।",
+      "empty": "এখনো কোনো ছবি নেই।"
+    }
+  },
   "errors": {
     "VALIDATION": "চিহ্নিত তথ্যগুলো ঠিক করুন।",
     "UNKNOWN": "কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।",
@@ -280,7 +322,7 @@
     "UPLOAD_MISSING": "আপলোডের জন্য একটি ছবি বেছে নিন।",
     "UPLOAD_TYPE": "শুধু JPG, PNG বা WebP ছবি আপলোড করা যাবে।",
     "UPLOAD_TOO_LARGE": "ছবিটি অনেক বড় (সর্বোচ্চ ৫ MB এবং ৪০ মেগাপিক্সেল)।",
-    "UPLOAD_TOO_SMALL": "ছবিটি অন্তত ১২৮ × ১২৮ পিক্সেল হতে হবে।",
+    "UPLOAD_TOO_SMALL": "ছবিটি অন্তত {min, number} × {min, number} পিক্সেল হতে হবে।",
     "UPLOAD_INVALID": "ছবির ফাইলটি নষ্ট বা পড়া যাচ্ছে না।",
     "KEY_OUTSIDE_PREFIX": "এই ফাইলটি এই দোকানের নয়।",
     "ONBOARDING_STEP_LOCKED": "আগের ধাপগুলো আগে শেষ করুন।",
@@ -311,6 +353,7 @@
     "NOTHING_SELECTED": "অন্তত একটি পণ্য বেছে নিন।",
     "IMAGE_LIMIT": "একটি পণ্যে সর্বোচ্চ ১০টি ছবি রাখা যায়।",
     "IMAGE_NOT_FOUND": "ছবিটি পাওয়া যায়নি।",
-    "FORBIDDEN": "এটি করার অনুমতি আপনার নেই।"
+    "FORBIDDEN": "এটি করার অনুমতি আপনার নেই।",
+    "UNAUTHENTICATED": "আবার লগইন করুন।"
   }
 }
