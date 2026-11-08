@@ -156,6 +156,10 @@ try {
     where: { storeId: store.id, deletedAt: null, status: "ACTIVE" },
     orderBy: { createdAt: "asc" },
   });
+  const category = await db.category.findFirst({
+    where: { storeId: store.id, deletedAt: null, isActive: true, parentId: null },
+    orderBy: { sortOrder: "asc" },
+  });
   const host = storeHost(STORE);
 
   // Root signup pages: the real phone → code → store-details flow (no store is created).
@@ -264,6 +268,7 @@ try {
     const context = await browser.newContext(contextOptions);
     const page = await context.newPage();
     await checkPage(page, "store-home", url(host, "/"));
+    if (category) await checkPage(page, "store-category", url(host, `/category/${category.slug}`));
     if (product) await checkPage(page, "store-product", url(host, `/products/${product.slug}`));
     await context.close();
   }

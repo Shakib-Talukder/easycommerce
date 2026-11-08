@@ -227,6 +227,7 @@
     "invited": "Invite sent."
   },
   "storefront": {
+    "breadcrumb": "Breadcrumb",
     "noProducts": "No products yet.",
     "inStock": "{count, number} in stock",
     "soldOut": "Sold out",
@@ -234,7 +235,7 @@
     "cod": "Cash on delivery",
     "comingSoon": "Coming soon",
     "comingSoonBody": "This store is being set up. Please check back soon.",
-    "unavailable": "Store unavailable",
+    "unavailable": "Not available",
     "contact": "Contact",
     "address": "Address",
     "paymentsAccepted": "We accept",
@@ -247,7 +248,38 @@
     "deliveryDays": "{count, plural, one {# day} other {# days}}",
     "followUs": "Follow us",
     "whatsappChat": "Chat on WhatsApp",
-    "social": { "facebook": "Facebook", "instagram": "Instagram", "youtube": "YouTube", "tiktok": "TikTok" }
+    "social": {
+      "facebook": "Facebook",
+      "instagram": "Instagram",
+      "youtube": "YouTube",
+      "tiktok": "TikTok"
+    },
+    "home": "Home",
+    "featured": "Featured",
+    "categoriesTitle": "Shop by category",
+    "newest": "New arrivals",
+    "viewAll": "View all",
+    "sortLabel": "Sort by",
+    "sort": {
+      "newest": "Newest",
+      "price-asc": "Price: low to high",
+      "price-desc": "Price: high to low"
+    },
+    "applySort": "Sort",
+    "results": "{total, plural, one {# product} other {# products}}",
+    "page": "Page {page, number} of {pages, number}",
+    "prev": "Previous",
+    "next": "Next",
+    "emptyCategory": "No products in this category yet.",
+    "size": "Size",
+    "colour": "Colour",
+    "outOfStock": "Out of stock",
+    "chooseOptions": "Choose {options}",
+    "onSale": "Sale",
+    "regularPrice": "Regular price {price}",
+    "photo": "Photo {n, number} of {total, number}",
+    "prevPhoto": "Previous photo",
+    "nextPhoto": "Next photo"
   },
   "catalog": {
     "images": {

@@ -6,3 +6,4 @@ export * from "./categories";
 export * from "./products";
 export * from "./images";
 export * from "./queries";
+export * from "./storefront";

@@ -227,6 +227,7 @@
     "invited": "আমন্ত্রণ পাঠানো হয়েছে।"
   },
   "storefront": {
+    "breadcrumb": "পথনির্দেশ",
     "noProducts": "এখনো কোনো পণ্য নেই।",
     "inStock": "স্টকে {count, number}টি",
     "soldOut": "স্টক শেষ",
@@ -234,7 +235,7 @@
     "cod": "ক্যাশ অন ডেলিভারি",
     "comingSoon": "শীঘ্রই আসছে",
     "comingSoonBody": "দোকানটি তৈরি হচ্ছে। শীঘ্রই আবার দেখুন।",
-    "unavailable": "দোকানটি এখন পাওয়া যাচ্ছে না",
+    "unavailable": "পাওয়া যাচ্ছে না",
     "contact": "যোগাযোগ",
     "address": "ঠিকানা",
     "paymentsAccepted": "পেমেন্টের উপায়",
@@ -247,7 +248,38 @@
     "deliveryDays": "{count, plural, other {# দিন}}",
     "followUs": "আমাদের ফলো করুন",
     "whatsappChat": "হোয়াটসঅ্যাপে মেসেজ করুন",
-    "social": { "facebook": "ফেসবুক", "instagram": "ইনস্টাগ্রাম", "youtube": "ইউটিউব", "tiktok": "টিকটক" }
+    "social": {
+      "facebook": "ফেসবুক",
+      "instagram": "ইনস্টাগ্রাম",
+      "youtube": "ইউটিউব",
+      "tiktok": "টিকটক"
+    },
+    "home": "হোম",
+    "featured": "বিশেষ পণ্য",
+    "categoriesTitle": "ক্যাটাগরি অনুযায়ী কিনুন",
+    "newest": "নতুন এসেছে",
+    "viewAll": "সব দেখুন",
+    "sortLabel": "সাজান",
+    "sort": {
+      "newest": "নতুন আগে",
+      "price-asc": "দাম: কম থেকে বেশি",
+      "price-desc": "দাম: বেশি থেকে কম"
+    },
+    "applySort": "সাজান",
+    "results": "{total, plural, other {#টি পণ্য}}",
+    "page": "পৃষ্ঠা {page, number} / {pages, number}",
+    "prev": "আগের",
+    "next": "পরের",
+    "emptyCategory": "এই ক্যাটাগরিতে এখনো কোনো পণ্য নেই।",
+    "size": "সাইজ",
+    "colour": "রং",
+    "outOfStock": "স্টক শেষ",
+    "chooseOptions": "{options} বেছে নিন",
+    "onSale": "ছাড়",
+    "regularPrice": "নিয়মিত দাম {price}",
+    "photo": "ছবি {n, number} / {total, number}",
+    "prevPhoto": "আগের ছবি",
+    "nextPhoto": "পরের ছবি"
   },
   "catalog": {
     "images": {
