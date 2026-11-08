@@ -1,62 +1,60 @@
+import { readSeo } from "@repo/core";
 import { storeDisplayName } from "@repo/db";
 import type { Metadata } from "next";
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { StoreFooter, StoreHeader, taglineOf } from "@/components/storefront-chrome";
 import { getTranslations } from "next-intl/server";
 import { getStoreForHost } from "@/lib/store";
+import { requestProtocol } from "@/server/request";
 
 type Props = { children: ReactNode; params: Promise<{ host: string }> };
 
+/**
+ * <title>, meta description and Open Graph in the store's language, from the
+ * Social & SEO settings (falling back to the store name and tagline).
+ */
 export async function generateMetadata({ params }: Omit<Props, "children">): Promise<Metadata> {
-  const { store, settings } = await getStoreForHost((await params).host);
-  const name = storeDisplayName(store, settings.language);
-  // `absolute` keeps the platform's "· EasyCommerce" suffix off storefront pages.
-  const title = { absolute: name, template: `%s · ${name}` };
+  const encoded = (await params).host;
+  const { store, settings } = await getStoreForHost(encoded);
+  const lang = settings.language;
+  const name = storeDisplayName(store, lang);
+  const seo = readSeo(settings.seo);
+  const pick = (bn?: string, en?: string) => (lang === "en" ? (en ?? bn) : (bn ?? en));
+  const title = pick(seo.titleBn, seo.titleEn) ?? name;
+  const description = pick(seo.descriptionBn, seo.descriptionEn) ?? taglineOf(settings) ?? undefined;
+  const base = new URL(`${await requestProtocol()}://${decodeURIComponent(encoded)}`);
+  const image = settings.logoUrl ? new URL(settings.logoUrl, base).toString() : undefined;
+
+  const metadata: Metadata = {
+    metadataBase: base,
+    // `absolute` keeps the platform's "· EasyCommerce" suffix off storefront pages.
+    title: { absolute: title, template: `%s · ${name}` },
+    description,
+    openGraph: {
+      type: "website",
+      siteName: name,
+      title,
+      description,
+      url: base.toString(),
+      locale: lang === "en" ? "en_US" : "bn_BD",
+      ...(image ? { images: [{ url: image, alt: name }] } : {}),
+    },
+    twitter: { card: "summary", title, description, ...(image ? { images: [image] } : {}) },
+  };
   // Only a live store may be indexed.
-  return store.status === "ACTIVE" ? { title } : { title, robots: { index: false, follow: false } };
+  return store.status === "ACTIVE" ? metadata : { ...metadata, robots: { index: false, follow: false } };
 }
 
 export default async function StorefrontLayout({ children, params }: Props) {
   const { store, settings } = await getStoreForHost((await params).host);
   if (store.status === "PENDING") return <ComingSoon nameBn={store.nameBn} nameEn={store.nameEn} />;
   if (store.status === "SUSPENDED") return <StoreUnavailable />;
-  const name = storeDisplayName(store, settings.language);
-  const t = await getTranslations("storefront");
 
   return (
     <>
-      <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
-          <Link href="/" className="flex min-w-0 items-center gap-3 text-xl font-bold text-[var(--brand)]">
-            {settings.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- immutable CDN/upload URL, already resized
-              <img
-                src={settings.logoUrl}
-                alt=""
-                width={40}
-                height={40}
-                className="size-10 rounded object-contain"
-              />
-            ) : null}
-            <span className="truncate" data-store-name>
-              {name}
-            </span>
-          </Link>
-          {settings.contactPhone ? (
-            <a
-              href={`tel:${settings.contactPhone}`}
-              className="shrink-0 text-sm text-neutral-600 dark:text-neutral-400"
-            >
-              {settings.contactPhone}
-            </a>
-          ) : null}
-        </div>
-      </header>
+      <StoreHeader store={store} settings={settings} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
-      <footer className="border-t border-neutral-200 py-6 text-center text-xs text-neutral-500 dark:border-neutral-800">
-        {settings.address}
-        {settings.codEnabled ? ` · ${t("cod")}` : null}
-      </footer>
+      <StoreFooter store={store} settings={settings} />
     </>
   );
 }
