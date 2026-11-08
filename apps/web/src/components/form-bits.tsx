@@ -121,7 +121,7 @@ export function SelectField({
         aria-invalid={errors ? true : undefined}
         aria-describedby={`${id}-msg`}
         className={cn(
-          "h-10 w-full rounded-md border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-900",
+          "h-11 w-full rounded-md border border-neutral-300 bg-white px-3 text-base md:text-sm dark:border-neutral-700 dark:bg-neutral-900",
           errors && "border-red-500",
         )}
         {...select}

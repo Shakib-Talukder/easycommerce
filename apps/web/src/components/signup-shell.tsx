@@ -21,7 +21,7 @@ export async function SignupShell({
   return (
     <main className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
       <header className="flex items-center justify-between gap-3">
-        <Link href="/" className="font-semibold text-[var(--brand)]">
+        <Link href="/" className="inline-flex min-h-11 items-center font-semibold text-[var(--brand)]">
           {tc("appName")}
         </Link>
         <LocaleSwitcher />

@@ -8,6 +8,7 @@
     "demoStores": "ডেমো দোকান (pnpm db:seed চালানোর পরে)",
     "language": "ভাষা",
     "locales": { "bn": "বাংলা", "en": "English" },
+    "localesShort": { "bn": "বাং", "en": "EN" },
     "back": "পেছনে",
     "next": "পরবর্তী",
     "save": "সংরক্ষণ করুন",
@@ -28,6 +29,8 @@
     "roles": { "OWNER": "মালিক", "STAFF": "স্টাফ" },
     "nav": {
       "dashboard": "ড্যাশবোর্ড",
+      "more": "আরও",
+      "menu": "মেনু",
       "staff": "স্টাফ",
       "settings": "সেটিংস",
       "onboarding": "দোকান সেটআপ",

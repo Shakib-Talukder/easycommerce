@@ -1,9 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { bengali, latin } from "./fonts";
 import "./globals.css";
+
+/** viewport-fit=cover so the layout can use safe-area insets (notches, home indicator). */
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");

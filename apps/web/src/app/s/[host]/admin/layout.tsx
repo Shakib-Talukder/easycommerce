@@ -26,5 +26,5 @@ export default async function AdminRootLayout({ children, params }: Props) {
       </main>
     );
   }
-  return <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-6">{children}</div>;
+  return <div className="flex w-full flex-1 flex-col">{children}</div>;
 }

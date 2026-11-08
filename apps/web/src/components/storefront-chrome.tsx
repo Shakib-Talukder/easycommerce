@@ -27,7 +27,7 @@ export async function StoreHeader({ store, settings }: Props) {
   return (
     <header className="border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
+        <Link href="/" className="flex min-h-11 min-w-0 items-center gap-3">
           {settings.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- immutable CDN/upload URL, already resized
             <img
@@ -52,7 +52,7 @@ export async function StoreHeader({ store, settings }: Props) {
         {settings.contactPhone ? (
           <a
             href={`tel:${settings.contactPhone}`}
-            className="shrink-0 text-sm text-neutral-600 dark:text-neutral-400"
+            className="flex min-h-11 shrink-0 items-center text-sm text-neutral-600 dark:text-neutral-400"
           >
             {localPhone(settings.contactPhone)}
           </a>
@@ -86,12 +86,16 @@ export async function StoreFooter({ store, settings }: Props) {
       <div className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:grid-cols-2 lg:grid-cols-4">
         <FooterBlock title={t("contact")}>
           {settings.contactPhone ? (
-            <a href={`tel:${settings.contactPhone}`} className="block" data-footer-phone>
+            <a href={`tel:${settings.contactPhone}`} className="flex min-h-11 items-center" data-footer-phone>
               {localPhone(settings.contactPhone)}
             </a>
           ) : null}
           {settings.contactEmail ? (
-            <a href={`mailto:${settings.contactEmail}`} className="block break-all" data-footer-email>
+            <a
+              href={`mailto:${settings.contactEmail}`}
+              className="flex min-h-11 items-center break-all"
+              data-footer-email
+            >
               {settings.contactEmail}
             </a>
           ) : null}
@@ -185,7 +189,7 @@ function SocialBlock({
                 aria-label={labels(`social.${p}`)}
                 title={labels(`social.${p}`)}
                 data-social={p}
-                className="flex size-9 items-center justify-center rounded-full border border-neutral-300 text-neutral-700 hover:border-[var(--brand)] hover:text-[var(--brand)] dark:border-neutral-700 dark:text-neutral-300"
+                className="flex size-11 items-center justify-center rounded-full border border-neutral-300 text-neutral-700 hover:border-[var(--brand)] hover:text-[var(--brand)] dark:border-neutral-700 dark:text-neutral-300"
               >
                 <SocialIcon platform={p} />
               </a>
@@ -199,7 +203,7 @@ function SocialBlock({
           target="_blank"
           rel="noopener noreferrer nofollow"
           data-whatsapp
-          className="inline-flex w-fit items-center gap-2 rounded-md bg-[#128c7e] px-3 py-2 text-sm font-medium text-white hover:brightness-110"
+          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-md bg-[#128c7e] px-3 py-2 text-sm font-medium text-white hover:brightness-110"
         >
           <SocialIcon platform="whatsapp" />
           {whatsappLabel}

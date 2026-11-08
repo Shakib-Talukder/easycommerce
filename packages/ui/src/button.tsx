@@ -10,10 +10,11 @@ const variants = {
   danger: "bg-red-600 text-white hover:bg-red-700",
 } as const;
 
+// Every size is at least 44 px tall: a comfortable tap target on phones.
 const sizes = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-base",
+  sm: "min-h-11 min-w-11 px-3 text-sm",
+  md: "min-h-11 min-w-11 px-4 text-sm",
+  lg: "min-h-12 px-6 text-base",
 } as const;
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

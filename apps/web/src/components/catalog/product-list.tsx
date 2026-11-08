@@ -117,7 +117,7 @@ export function ProductList({
             <div className="flex min-w-0 flex-col gap-1">
               <Link
                 href={`/admin/products/${item.id}`}
-                className="font-medium break-words hover:text-[var(--brand)]"
+                className="inline-flex min-h-11 items-center font-medium break-words hover:text-[var(--brand)]"
               >
                 {item.title}
               </Link>

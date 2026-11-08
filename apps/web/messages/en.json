@@ -8,6 +8,7 @@
     "demoStores": "Demo stores (after pnpm db:seed)",
     "language": "Language",
     "locales": { "bn": "বাংলা", "en": "English" },
+    "localesShort": { "bn": "বাং", "en": "EN" },
     "back": "Back",
     "next": "Next",
     "save": "Save",
@@ -28,6 +29,8 @@
     "roles": { "OWNER": "Owner", "STAFF": "Staff" },
     "nav": {
       "dashboard": "Dashboard",
+      "more": "More",
+      "menu": "Menu",
       "staff": "Staff",
       "settings": "Settings",
       "onboarding": "Store setup",

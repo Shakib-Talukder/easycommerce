@@ -51,7 +51,7 @@ export function SettingsTabs({
               if (tab.id !== active && dirty && !window.confirm(t("unsavedConfirm"))) e.preventDefault();
             }}
             className={cn(
-              "shrink-0 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap",
+              "flex min-h-11 shrink-0 items-center border-b-2 px-3 text-sm font-medium whitespace-nowrap",
               tab.id === active
                 ? "border-[var(--brand)] text-[var(--brand)]"
                 : "border-transparent text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100",

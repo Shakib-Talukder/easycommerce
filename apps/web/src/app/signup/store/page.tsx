@@ -24,7 +24,7 @@ export default async function SignupStorePage() {
       </p>
       <StoreDetailsForm rootDomain={process.env.ROOT_DOMAIN ?? "localhost:3000"} />
       <form action={restartSignupAction} className="text-center">
-        <button type="submit" className="text-sm underline" data-start-over>
+        <button type="submit" className="min-h-11 px-3 text-sm underline" data-start-over>
           {t("startOver")}
         </button>
       </form>

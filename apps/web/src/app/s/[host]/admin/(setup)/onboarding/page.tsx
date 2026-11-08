@@ -250,7 +250,7 @@ async function Review({ values }: { values: StoreSettingsValues }) {
             <h2 className="font-semibold">{t(`steps.${g.section}`)}</h2>
             <Link
               href={`/admin/onboarding?step=${i + 1}&return=finish`}
-              className="text-sm text-[var(--brand)] underline"
+              className="inline-flex min-h-11 items-center px-2 text-sm text-[var(--brand)] underline"
             >
               {tc("edit")}
             </Link>

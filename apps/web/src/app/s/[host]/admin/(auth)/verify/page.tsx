@@ -35,7 +35,10 @@ export default async function VerifyPage({ searchParams }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <VerifyForm identifier={identifier} resendSeconds={resendSeconds} />
-            <Link href="/admin/login" className="text-center text-sm underline">
+            <Link
+              href="/admin/login"
+              className="inline-flex min-h-11 items-center justify-center text-sm underline"
+            >
               {t("useOther")}
             </Link>
           </CardContent>

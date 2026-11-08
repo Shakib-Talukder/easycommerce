@@ -259,7 +259,7 @@ export function BrandingSection({ values, mode }: SectionProps) {
                       setPrimary(p.primary);
                       setSecondary(p.secondary);
                     }}
-                    className="flex h-10 overflow-hidden rounded-md border-2 border-transparent aria-pressed:border-neutral-900 dark:aria-pressed:border-white"
+                    className="flex h-11 overflow-hidden rounded-md border-2 border-transparent aria-pressed:border-neutral-900 dark:aria-pressed:border-white"
                   >
                     <span className="flex-1" style={{ background: p.primary }} />
                     <span className="w-1/3" style={{ background: p.secondary }} />
@@ -326,7 +326,7 @@ function LogoUpload({
             type="file"
             accept="image/jpeg,image/png,image/webp"
             aria-describedby="f-logo-msg"
-            className="max-w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-neutral-100 file:px-3 file:py-2 dark:file:bg-neutral-800"
+            className="min-h-11 max-w-full text-base file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-neutral-100 file:px-3 md:text-sm dark:file:bg-neutral-800"
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (!file) return;
@@ -368,7 +368,7 @@ function ColorField({
           aria-label={label}
           value={valid ? value.toLowerCase() : "#000000"}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-12 shrink-0 cursor-pointer rounded-md border border-neutral-300 bg-white p-1 dark:border-neutral-700"
+          className="h-11 w-12 shrink-0 cursor-pointer rounded-md border border-neutral-300 bg-white p-1 dark:border-neutral-700"
         />
         <Input
           id={`f-${name}`}
@@ -703,7 +703,7 @@ function TextAreaField({
         aria-invalid={errors ? true : undefined}
         aria-describedby={`${id}-msg`}
         className={cn(
-          "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900",
+          "w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-base md:text-sm dark:border-neutral-700 dark:bg-neutral-900",
           errors && "border-red-500",
         )}
       />

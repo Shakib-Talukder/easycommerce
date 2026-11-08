@@ -25,7 +25,10 @@ export async function AdminHeader({ store, user, links = [] }: Props) {
   return (
     <header className="flex flex-col gap-3 border-b border-neutral-200 pb-3 dark:border-neutral-800">
       <div className="flex flex-wrap items-center gap-3">
-        <Link href="/admin" className="flex min-w-0 items-center gap-2 font-bold text-[var(--brand)]">
+        <Link
+          href="/admin"
+          className="flex min-h-11 min-w-0 items-center gap-2 font-bold text-[var(--brand)]"
+        >
           {settings?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- already resized to 512 px and immutable
             <img
@@ -55,11 +58,20 @@ export async function AdminHeader({ store, user, links = [] }: Props) {
       {user ? (
         <nav aria-label={t("nav.main")} className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className="font-medium hover:text-[var(--brand)]">
+            <Link
+              key={l.href}
+              href={l.href}
+              className="inline-flex min-h-11 items-center font-medium hover:text-[var(--brand)]"
+            >
               {l.label}
             </Link>
           ))}
-          <a href="/" className="text-neutral-500 hover:text-[var(--brand)]" target="_blank" rel="noreferrer">
+          <a
+            href="/"
+            className="inline-flex min-h-11 items-center text-neutral-500 hover:text-[var(--brand)]"
+            target="_blank"
+            rel="noreferrer"
+          >
             {t("nav.viewStore")}
           </a>
           <span className="ml-auto text-neutral-500" data-user-role={user.role}>

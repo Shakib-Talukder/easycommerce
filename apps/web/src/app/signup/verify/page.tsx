@@ -21,7 +21,7 @@ export default async function SignupVerifyPage({ searchParams }: Props) {
   return (
     <SignupShell step={2} title={t("otpTitle")} description={t("otpSent", { phone })}>
       <OtpForm phone={phone} resendSeconds={resendSeconds} />
-      <Link href="/signup" className="text-center text-sm underline">
+      <Link href="/signup" className="inline-flex min-h-11 items-center justify-center text-sm underline">
         {t("changePhone")}
       </Link>
     </SignupShell>

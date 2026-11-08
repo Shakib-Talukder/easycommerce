@@ -687,9 +687,14 @@ function AxisEditor({
           >
             {isColour ? (
               <label
-                className="relative size-6 shrink-0 cursor-pointer overflow-hidden rounded-full border"
-                style={{ background: v.hex ?? "transparent" }}
+                className="relative flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-full"
+                title={t("hex")}
               >
+                <span
+                  className="size-6 rounded-full border"
+                  style={{ background: v.hex ?? "transparent" }}
+                  aria-hidden
+                />
                 <span className="sr-only">{t("hex")}</span>
                 <input
                   type="color"
@@ -703,7 +708,7 @@ function AxisEditor({
             <button
               type="button"
               onClick={() => onRemove(v.id)}
-              className="flex size-9 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              className="flex size-11 items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
               aria-label={t("removeValue", { value: v[locale] })}
             >
               ×
