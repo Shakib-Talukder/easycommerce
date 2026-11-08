@@ -13,6 +13,13 @@ import { IMMUTABLE_CACHE_CONTROL, getStorageProvider, isSafeKey, type StoragePro
 
 export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const IMAGE_MIN_PX = 128;
+/**
+ * Decoded size limit (width × height). Bigger images are rejected before decoding,
+ * so a small, highly compressed file can't make sharp allocate gigabytes.
+ */
+export const IMAGE_MAX_PIXELS = 40_000_000;
+/** Options for every sharp() call on untrusted input. */
+const SHARP_INPUT = { limitInputPixels: IMAGE_MAX_PIXELS } as const;
 export const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export type AcceptedImageType = (typeof ACCEPTED_IMAGE_TYPES)[number];
 
@@ -86,12 +93,15 @@ export async function processAndStoreImage<K extends ImageKind>(
   let height: number;
   try {
     // autoOrient: dimensions as displayed (EXIF rotation applied).
-    const meta = await sharp(data, { autoOrient: true }).metadata();
+    // metadata() reads the header only, so this rejects oversized images before any decode.
+    const meta = await sharp(data, { ...SHARP_INPUT, autoOrient: true }).metadata();
     width = meta.width;
     height = meta.height;
-  } catch {
+  } catch (error) {
+    if (/pixel limit/i.test(String(error))) throw new ImageUploadError("UPLOAD_TOO_LARGE");
     throw new ImageUploadError("UPLOAD_INVALID");
   }
+  if (width * height > IMAGE_MAX_PIXELS) throw new ImageUploadError("UPLOAD_TOO_LARGE");
   if (Math.min(width, height) < IMAGE_MIN_PX) throw new ImageUploadError("UPLOAD_TOO_SMALL");
 
   const storage = input.storage ?? getStorageProvider();
@@ -100,7 +110,7 @@ export async function processAndStoreImage<K extends ImageKind>(
   try {
     for (const [name, v] of Object.entries(IMAGE_KINDS[kind]) as [string, Variant][]) {
       // .rotate() applies EXIF orientation; sharp drops EXIF/ICC/XMP unless asked to keep them.
-      const pipeline = sharp(data)
+      const pipeline = sharp(data, SHARP_INPUT)
         .rotate()
         .resize(v.width, v.height, {
           fit: v.fit,
@@ -122,7 +132,7 @@ export async function processAndStoreImage<K extends ImageKind>(
     throw error;
   }
 
-  const { dominant } = await sharp(data).stats();
+  const { dominant } = await sharp(data, SHARP_INPUT).stats();
   return {
     variants: variants as ProcessedImage<K>["variants"],
     dominantColor: rgbToHex(dominant.r, dominant.g, dominant.b),

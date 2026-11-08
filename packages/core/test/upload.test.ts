@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import {
   ForeignKeyError,
   IMAGE_MAX_BYTES,
+  IMAGE_MAX_PIXELS,
   ImageUploadError,
   assertStoreKey,
   detectImageType,
@@ -80,6 +81,20 @@ describe("image validation", () => {
       processAndStoreImage("logo", { storeId: storeA.id, data: big, storage: disk }),
       "UPLOAD_TOO_LARGE",
     );
+  });
+
+  it(`rejects images over ${IMAGE_MAX_PIXELS / 1e6} megapixels, even when the file is small`, async () => {
+    // 50 MP solid PNG: ~160 KB on disk, ~150 MB decoded.
+    const bomb = await solid(7072, 7072).png().toBuffer();
+    expect(bomb.length).toBeLessThan(IMAGE_MAX_BYTES);
+    await expectCode(
+      processAndStoreImage("logo", { storeId: storeA.id, data: bomb, storage: disk }),
+      "UPLOAD_TOO_LARGE",
+    );
+    // Just under the limit is fine.
+    const ok = await solid(6000, 6000).png().toBuffer();
+    const stored = await processAndStoreImage("logo", { storeId: storeA.id, data: ok, storage: disk });
+    expect(stored.variants.logo.width).toBe(512);
   });
 
   it("rejects images smaller than 128 px and corrupt images", async () => {
