@@ -90,6 +90,55 @@ describe("storage sweep (LocalDiskProvider + database references)", () => {
   });
 });
 
+describe("sweep references for the catalogue", () => {
+  it("never lists or deletes category images or product images/thumbs, even of soft-deleted products", async () => {
+    const cat = `stores/${store.id}/category/${createId()}.webp`;
+    const img = `stores/${store.id}/product/${createId()}.webp`;
+    const thumb = `stores/${store.id}/product/thumb/${createId()}.webp`;
+    const loose = `stores/${store.id}/product/${createId()}.webp`;
+    for (const k of [cat, img, thumb, loose]) await plant(k, 3 * DAY);
+    const db = adminClient();
+    await db.category.create({
+      data: {
+        storeId: store.id,
+        nameBn: "ক",
+        nameEn: "Cat",
+        slug: `c-${createId().slice(0, 6)}`,
+        imageKey: cat,
+        imageUrl: disk.publicUrl(cat),
+      },
+    });
+    const product = await db.product.create({
+      data: {
+        storeId: store.id,
+        titleBn: "প",
+        titleEn: "P",
+        slug: `p-${createId().slice(0, 6)}`,
+        deletedAt: new Date(),
+      },
+    });
+    await db.productImage.create({
+      data: {
+        storeId: store.id,
+        productId: product.id,
+        key: img,
+        thumbKey: thumb,
+        url: disk.publicUrl(img),
+        thumbUrl: disk.publicUrl(thumb),
+        width: 1600,
+        height: 1600,
+      },
+    });
+
+    const result = await sweepOrphans({ storage: disk, apply: true });
+    expect(result.deleted).toContain(loose);
+    for (const k of [cat, img, thumb]) {
+      expect(result.orphans.map((o) => o.key)).not.toContain(k);
+      expect(await disk.read(k)).not.toBeNull();
+    }
+  });
+});
+
 describe("storage listing", () => {
   it("LocalDiskProvider.open streams a file without reading it whole, and rejects unsafe keys", async () => {
     const key = `stores/${store.id}/logo/${createId()}.webp`;

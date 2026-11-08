@@ -11,7 +11,8 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    seed: "tsx prisma/seed.ts",
+    // The seed lives in @repo/core so it can store placeholder photos through the real image pipeline.
+    seed: "tsx ../core/scripts/seed.ts",
   },
   // Owner role: migrations, seed and Studio. The app itself uses APP_DATABASE_URL.
   datasource: {

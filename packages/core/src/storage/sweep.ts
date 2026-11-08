@@ -5,7 +5,7 @@ import type { StorageProvider, StoredObject } from "./types";
  * Orphan sweep for object storage. An object under stores/<storeId>/ is an
  * orphan when it is older than `minAgeMs` (default 24 h) and either
  *   - its store no longer exists, or
- *   - no store_settings row references it (logo_key, favicon_key).
+ *   - nothing references it (store logo/favicon, category image, product image/thumb).
  * Younger objects are always kept, so an upload whose database save is still in
  * flight is never touched. Objects outside stores/ are ignored.
  *
@@ -38,16 +38,33 @@ export type SweepResult = {
   failed: { key: string; error: string }[];
 };
 
-/** Every key a store currently points at, plus the ids of existing stores. */
+/**
+ * Every key a store currently points at, plus the ids of existing stores: logo and
+ * favicon, category images, and product images + thumbs. Rows of soft-deleted
+ * products and categories still count (they can be restored from the trash) until
+ * they are permanently deleted.
+ */
 export async function loadStorageReferences(): Promise<{ keys: Set<string>; storeIds: Set<string> }> {
   const db = adminClient();
-  const [stores, settings] = await Promise.all([
+  const [stores, settings, categories, images] = await Promise.all([
     db.store.findMany({ select: { id: true } }),
     db.storeSettings.findMany({ select: { logoKey: true, faviconKey: true } }),
+    db.category.findMany({ where: { imageKey: { not: null } }, select: { imageKey: true } }),
+    db.productImage.findMany({ select: { key: true, thumbKey: true } }),
   ]);
   const keys = new Set<string>();
-  // Day 3: add product image keys here before product uploads go live.
-  for (const s of settings) for (const k of [s.logoKey, s.faviconKey]) if (k) keys.add(k);
+  const add = (k: string | null) => {
+    if (k) keys.add(k);
+  };
+  for (const s of settings) {
+    add(s.logoKey);
+    add(s.faviconKey);
+  }
+  for (const c of categories) add(c.imageKey);
+  for (const i of images) {
+    add(i.key);
+    add(i.thumbKey);
+  }
   return { keys, storeIds: new Set(stores.map((s) => s.id)) };
 }
 

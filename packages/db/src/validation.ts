@@ -113,29 +113,5 @@ export const storeInputSchema = z.object({
   subdomain: subdomainSchema,
 });
 
-export const variantInputSchema = z.object({
-  sku: z.string().trim().min(1).max(64),
-  title: z.string().trim().min(1).max(200),
-  options: z.record(z.string(), z.string()).default({}),
-  price: poishaSchema,
-  compareAtPrice: poishaSchema.optional(),
-  stock: z.number().int().nonnegative().default(0),
-  weightGrams: z.number().int().nonnegative().optional(),
-});
-
-export const productInputSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  slug: slugSchema,
-  description: z.string().max(20_000).optional(),
-  status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).default("DRAFT"),
-  categoryId: z.string().optional(),
-  images: z.array(z.object({ url: z.url(), alt: z.string().optional() })).default([]),
-  basePrice: poishaSchema,
-  compareAtPrice: poishaSchema.optional(),
-  variants: z.array(variantInputSchema).default([]),
-});
-
 export type UserInput = z.infer<typeof userInputSchema>;
 export type StoreInput = z.infer<typeof storeInputSchema>;
-export type ProductInput = z.infer<typeof productInputSchema>;
-export type VariantInput = z.infer<typeof variantInputSchema>;

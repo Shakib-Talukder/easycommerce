@@ -1,13 +1,11 @@
 import { forStore, formatBDT } from "@repo/db";
 import { Button } from "@repo/ui";
 import type { Metadata } from "next";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { getStoreForHost } from "@/lib/store";
 
 type Props = { params: Promise<{ host: string; slug: string }> };
-type ProductImage = { url: string; alt?: string };
 
 async function getProduct(host: string, slug: string) {
   const { store, settings } = await getStoreForHost(host);
@@ -15,7 +13,10 @@ async function getProduct(host: string, slug: string) {
   if (store.status !== "ACTIVE") return null;
   const product = await forStore(store.id).product.findFirst({
     where: { slug, status: "ACTIVE", deletedAt: null },
-    include: { variants: { where: { deletedAt: null }, orderBy: { price: "asc" } } },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      variants: { where: { deletedAt: null, isActive: true }, orderBy: { price: "asc" } },
+    },
   });
   if (!product) notFound();
   return { product, lang: settings.language };
@@ -25,7 +26,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { host, slug } = await params;
   const found = await getProduct(host, slug);
   if (!found) return {};
-  return { title: found.product.title, description: found.product.description ?? undefined };
+  const { product, lang } = found;
+  return {
+    title: lang === "en" ? product.titleEn : product.titleBn,
+    description: (lang === "en" ? product.descriptionEn : product.descriptionBn) ?? undefined,
+  };
 }
 
 export default async function ProductPage({ params }: Props) {
@@ -34,46 +39,36 @@ export default async function ProductPage({ params }: Props) {
   if (!found) return null;
   const { product, lang } = found;
   const t = await getTranslations("storefront");
-  const image = (product.images as ProductImage[])[0];
+  const title = lang === "en" ? product.titleEn : product.titleBn;
+  const description = lang === "en" ? product.descriptionEn : product.descriptionBn;
+  const cover = product.images[0];
+  const cheapest = product.variants[0];
 
   return (
     <article className="grid gap-8 md:grid-cols-2">
-      {image ? (
-        <Image
-          src={image.url}
-          alt={image.alt ?? product.title}
-          width={800}
-          height={800}
+      {cover ? (
+        // eslint-disable-next-line @next/next/no-img-element -- immutable 1600 px WebP
+        <img
+          src={cover.url}
+          alt={(lang === "en" ? cover.altEn : cover.altBn) ?? title}
+          width={cover.width}
+          height={cover.height}
           className="aspect-square w-full rounded-xl object-cover"
-          priority
         />
       ) : null}
       <div className="flex flex-col gap-4">
-        <h1 className="text-3xl font-bold">{product.title}</h1>
-        <p className="text-2xl font-semibold text-[var(--brand)]">{formatBDT(product.basePrice, lang)}</p>
-        {product.description ? (
-          <p className="text-neutral-600 dark:text-neutral-400">{product.description}</p>
+        <h1 className="text-3xl font-bold">{title}</h1>
+        {cheapest ? (
+          <p className="text-2xl font-semibold text-[var(--brand)]">
+            {formatBDT(cheapest.salePrice ?? cheapest.price, lang)}
+          </p>
         ) : null}
-
-        {product.variants.length > 0 ? (
-          <ul className="flex flex-col gap-2">
-            {product.variants.map((v) => (
-              <li
-                key={v.id}
-                className="flex items-center justify-between rounded-md border border-neutral-200 px-3 py-2 dark:border-neutral-800"
-              >
-                <span>{v.title}</span>
-                <span className="text-sm">
-                  {formatBDT(v.price, lang)}
-                  <span className="ml-2 text-neutral-500">
-                    {v.stock > 0 ? t("inStock", { count: v.stock }) : t("soldOut")}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
+        {description ? (
+          <p className="whitespace-pre-line text-neutral-600 dark:text-neutral-400">{description}</p>
         ) : null}
-
+        <p className="text-sm text-neutral-500">
+          {product.variants.some((v) => v.stock > 0) ? null : t("soldOut")}
+        </p>
         <Button size="lg" disabled>
           {t("orderSoon")}
         </Button>

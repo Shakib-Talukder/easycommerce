@@ -1,5 +1,5 @@
 import { createReadStream, type ReadStream } from "node:fs";
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { assertSafeKey, isSafeKey, type StorageProvider, type StoredObject } from "./types";
 
@@ -32,7 +32,16 @@ export class LocalDiskProvider implements StorageProvider {
   }
 
   async delete(key: string): Promise<void> {
-    await rm(this.pathFor(key), { force: true });
+    const file = this.pathFor(key);
+    await rm(file, { force: true });
+    // Prune now-empty folders (stores/<id>/product/…) up to, not including, the root.
+    for (let dir = path.dirname(file); dir.startsWith(this.root + path.sep); dir = path.dirname(dir)) {
+      try {
+        await rmdir(dir); // fails (and stops) as soon as a folder isn't empty
+      } catch {
+        break;
+      }
+    }
   }
 
   /** Whole file (tests, small files). Returns null for unknown or unsafe keys. */

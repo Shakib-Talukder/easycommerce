@@ -10,6 +10,7 @@ const TENANT_TABLES = [
   "categories",
   "products",
   "variants",
+  "product_images",
   "customers",
   "orders",
   "order_items",
@@ -25,9 +26,9 @@ beforeAll(async () => {
   storeB = await createTestStore("b");
   await adminClient().product.createMany({
     data: [
-      { storeId: storeA.id, title: "A1", slug: "shared-slug", basePrice: 1000, status: "ACTIVE" },
-      { storeId: storeA.id, title: "A2", slug: "a-only", basePrice: 2000, status: "ACTIVE" },
-      { storeId: storeB.id, title: "B1", slug: "shared-slug", basePrice: 3000, status: "ACTIVE" },
+      { storeId: storeA.id, titleBn: "A1", titleEn: "A1", slug: "shared-slug", status: "ACTIVE" },
+      { storeId: storeA.id, titleBn: "A2", titleEn: "A2", slug: "a-only", status: "ACTIVE" },
+      { storeId: storeB.id, titleBn: "B1", titleEn: "B1", slug: "shared-slug", status: "ACTIVE" },
     ],
   });
 });
@@ -74,10 +75,10 @@ describe("row-level security", () => {
   });
 
   it("forStore() only sees its own store's rows", async () => {
-    const a = await forStore(storeA.id).product.findMany({ orderBy: { title: "asc" } });
+    const a = await forStore(storeA.id).product.findMany({ orderBy: { titleEn: "asc" } });
     const b = await forStore(storeB.id).product.findMany();
-    expect(a.map((p) => p.title)).toEqual(["A1", "A2"]);
-    expect(b.map((p) => p.title)).toEqual(["B1"]);
+    expect(a.map((p) => p.titleEn)).toEqual(["A1", "A2"]);
+    expect(b.map((p) => p.titleEn)).toEqual(["B1"]);
     expect(await forStore(storeA.id).store.findMany()).toHaveLength(1);
   });
 
@@ -90,7 +91,7 @@ describe("row-level security", () => {
   it("WITH CHECK rejects inserting a row for another store", async () => {
     await expect(
       forStore(storeA.id).product.create({
-        data: { storeId: storeB.id, title: "sneaky", slug: "sneaky", basePrice: 1 },
+        data: { storeId: storeB.id, titleBn: "sneaky", titleEn: "sneaky", slug: "sneaky" },
       }),
     ).rejects.toThrow(/row-level security/i);
   });
@@ -98,13 +99,13 @@ describe("row-level security", () => {
   it("cannot update or delete another store's rows", async () => {
     const updated = await forStore(storeA.id).product.updateMany({
       where: { storeId: storeB.id },
-      data: { title: "hacked" },
+      data: { titleEn: "hacked" },
     });
     const deleted = await forStore(storeA.id).product.deleteMany({ where: { storeId: storeB.id } });
     expect(updated.count).toBe(0);
     expect(deleted.count).toBe(0);
     const [b1] = await forStore(storeB.id).product.findMany();
-    expect(b1?.title).toBe("B1");
+    expect(b1?.titleEn).toBe("B1");
   });
 
   it("app_user cannot read Prisma's migrations table", async () => {

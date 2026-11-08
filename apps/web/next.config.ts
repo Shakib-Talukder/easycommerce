@@ -20,9 +20,6 @@ const nextConfig: NextConfig = {
     // Logo uploads (max 5 MB) go through a server action.
     serverActions: { bodySizeLimit: "6mb" },
   },
-  images: {
-    remotePatterns: [{ protocol: "https", hostname: "picsum.photos" }],
-  },
 };
 
 export default withNextIntl(nextConfig);

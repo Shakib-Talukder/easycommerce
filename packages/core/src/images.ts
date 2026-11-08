@@ -12,6 +12,7 @@ import { IMMUTABLE_CACHE_CONTROL, getStorageProvider, isSafeKey, type StoragePro
  */
 
 export const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** Smallest accepted short edge for logos; see IMAGE_MIN_PX_BY_KIND for the others. */
 export const IMAGE_MIN_PX = 128;
 /**
  * Decoded size limit (width × height). Bigger images are rejected before decoding,
@@ -37,13 +38,24 @@ export const IMAGE_KINDS = {
     logo: { folder: "logo", width: 512, height: 512, fit: "inside", format: "webp" },
     favicon: { folder: "favicon", width: 64, height: 64, fit: "contain", format: "png" },
   },
+  // Both under stores/<id>/product/ (product_images_key_chk).
   product: {
-    image: { folder: "products", width: 1600, height: 1600, fit: "inside", format: "webp" },
-    thumb: { folder: "products-thumb", width: 400, height: 400, fit: "inside", format: "webp" },
+    image: { folder: "product", width: 1600, height: 1600, fit: "inside", format: "webp" },
+    thumb: { folder: "product/thumb", width: 400, height: 400, fit: "inside", format: "webp" },
+  },
+  category: {
+    image: { folder: "category", width: 800, height: 800, fit: "inside", format: "webp" },
   },
 } as const satisfies Record<string, Record<string, Variant>>;
 
 export type ImageKind = keyof typeof IMAGE_KINDS;
+
+/** Minimum short edge (after EXIF orientation) per kind. */
+export const IMAGE_MIN_PX_BY_KIND: Record<ImageKind, number> = {
+  logo: IMAGE_MIN_PX,
+  product: 300,
+  category: 300,
+};
 
 export type ImageErrorCode =
   | "UPLOAD_MISSING"
@@ -102,7 +114,7 @@ export async function processAndStoreImage<K extends ImageKind>(
     throw new ImageUploadError("UPLOAD_INVALID");
   }
   if (width * height > IMAGE_MAX_PIXELS) throw new ImageUploadError("UPLOAD_TOO_LARGE");
-  if (Math.min(width, height) < IMAGE_MIN_PX) throw new ImageUploadError("UPLOAD_TOO_SMALL");
+  if (Math.min(width, height) < IMAGE_MIN_PX_BY_KIND[kind]) throw new ImageUploadError("UPLOAD_TOO_SMALL");
 
   const storage = input.storage ?? getStorageProvider();
   const stored: StoredImage[] = [];
