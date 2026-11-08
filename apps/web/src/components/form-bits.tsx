@@ -2,7 +2,7 @@
 
 import { Button, Input, Label, cn, type ButtonProps, type InputProps } from "@repo/ui";
 import { useTranslations } from "next-intl";
-import { useEffect, useState, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useActionState, useEffect, useState, type ReactNode, type SelectHTMLAttributes } from "react";
 import { useFormStatus } from "react-dom";
 import type { ActionState } from "@/lib/action-result";
 
@@ -189,3 +189,64 @@ export function Toast({ state }: { state: ActionState }) {
 }
 
 export { Button };
+
+type CodeAction = (prev: ActionState, formData: FormData) => Promise<ActionState>;
+
+/**
+ * "Resend code" with a countdown. The server decides: the countdown starts from
+ * the cooldown left when the page loaded, then from what each resend returns
+ * (cooldownSeconds after a send, secondsLeft after RESEND_COOLDOWN).
+ */
+export function ResendCodeForm({
+  action,
+  fields,
+  initialSeconds,
+  label,
+  countdown,
+}: {
+  action: CodeAction;
+  fields: Record<string, string>;
+  initialSeconds: number;
+  label: string;
+  countdown: (seconds: number) => string;
+}) {
+  const [state, formAction] = useActionState(action, null);
+  const fromServer = state?.data?.cooldownSeconds ?? state?.data?.secondsLeft;
+  const seconds = typeof fromServer === "number" ? fromServer : initialSeconds;
+  // A new key per response restarts the countdown.
+  const key = state
+    ? `${String(state.data?.sentAt ?? "")}:${state.ok ? "ok" : state.code}:${seconds}`
+    : "initial";
+  return (
+    <form action={formAction} className="flex flex-col items-center gap-2" noValidate data-resend-form>
+      {Object.entries(fields).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
+      <FormMessage state={state} />
+      <ResendButton key={key} start={seconds} label={label} countdown={countdown} />
+    </form>
+  );
+}
+
+function ResendButton({
+  start,
+  label,
+  countdown,
+}: {
+  start: number;
+  label: string;
+  countdown: (seconds: number) => string;
+}) {
+  const [seconds, setSeconds] = useState(start);
+  useEffect(() => {
+    if (seconds <= 0) return;
+    const timer = setTimeout(() => setSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [seconds]);
+  // Without JavaScript the button stays enabled; the server's cooldown still applies.
+  return (
+    <Button type="submit" variant="ghost" size="sm" disabled={seconds > 0} data-resend-seconds={seconds}>
+      {seconds > 0 ? countdown(seconds) : label}
+    </Button>
+  );
+}

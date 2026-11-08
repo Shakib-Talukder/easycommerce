@@ -2,9 +2,9 @@
 
 import { useTranslations } from "next-intl";
 import { useActionState } from "react";
-import { sendLoginCodeAction, verifyLoginCodeAction } from "@/server/actions/auth";
+import { resendLoginCodeAction, sendLoginCodeAction, verifyLoginCodeAction } from "@/server/actions/auth";
 import { inviteStaffAction } from "@/server/actions/staff";
-import { Field, FormMessage, SubmitButton } from "./form-bits";
+import { Field, FormMessage, ResendCodeForm, SubmitButton } from "./form-bits";
 
 export function LoginForm() {
   const t = useTranslations("auth");
@@ -25,7 +25,23 @@ export function LoginForm() {
   );
 }
 
-export function VerifyForm({ identifier }: { identifier: string }) {
+export function VerifyForm({ identifier, resendSeconds }: { identifier: string; resendSeconds: number }) {
+  const t = useTranslations("auth");
+  return (
+    <div className="flex flex-col gap-4">
+      <VerifyCodeForm identifier={identifier} />
+      <ResendCodeForm
+        action={resendLoginCodeAction}
+        fields={{ identifier }}
+        initialSeconds={resendSeconds}
+        label={t("resend")}
+        countdown={(seconds) => t("resendIn", { seconds })}
+      />
+    </div>
+  );
+}
+
+function VerifyCodeForm({ identifier }: { identifier: string }) {
   const t = useTranslations("auth");
   const [state, action] = useActionState(verifyLoginCodeAction, null);
   return (

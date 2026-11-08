@@ -21,6 +21,42 @@ export async function getRateLimiter(): Promise<RateLimiter> {
   return new KvRateLimiter(await getKeyValueStore());
 }
 
+/** Minimum time between two OTP sends to one identifier in one scope. */
+export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+const cooldownKey = (scope: string, identifier: string) => `otp-cooldown:${scope}:${identifier}`;
+
+export type CooldownResult = { ok: true } | { ok: false; secondsLeft: number };
+
+/** Seconds until `identifier` may get another code in `scope` (0 = now). Read-only. */
+export async function otpCooldownSecondsLeft(
+  kv: KeyValueStore,
+  scope: string,
+  identifier: string,
+): Promise<number> {
+  return kv.ttl(cooldownKey(scope, identifier));
+}
+
+/** Atomically starts the 60 s cooldown (SET NX EX), so two concurrent requests can't both send. */
+export async function claimOtpCooldown(
+  kv: KeyValueStore,
+  scope: string,
+  identifier: string,
+): Promise<CooldownResult> {
+  if (await kv.setIfAbsent(cooldownKey(scope, identifier), "1", OTP_RESEND_COOLDOWN_SECONDS))
+    return { ok: true };
+  return { ok: false, secondsLeft: Math.max(1, await otpCooldownSecondsLeft(kv, scope, identifier)) };
+}
+
+/** Lifts the cooldown, e.g. when the send itself failed and the user should be able to retry. */
+export async function releaseOtpCooldown(
+  kv: KeyValueStore,
+  scope: string,
+  identifier: string,
+): Promise<void> {
+  await kv.del(cooldownKey(scope, identifier));
+}
+
 /** OTP send limits from the spec. */
 export const OTP_SEND_LIMITS = {
   perIdentifier: { max: 3, windowSeconds: 15 * 60 },

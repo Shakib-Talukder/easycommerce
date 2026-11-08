@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input, Label, cn } from "@repo/ui";
+import { Input, Label, cn } from "@repo/ui";
 import { slugifySubdomain } from "@repo/db/validation";
 import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
@@ -10,7 +10,7 @@ import {
   sendSignupCodeAction,
   verifySignupCodeAction,
 } from "@/server/actions/signup";
-import { Field, FieldMessage, FormMessage, SubmitButton, fieldErrorsOf } from "./form-bits";
+import { Field, FieldMessage, FormMessage, ResendCodeForm, SubmitButton, fieldErrorsOf } from "./form-bits";
 
 // ---------------------------------------------------------------------------
 // Screen 1: phone
@@ -119,9 +119,7 @@ export function OtpInput({ invalid, describedBy }: { invalid?: boolean; describe
   );
 }
 
-const RESEND_SECONDS = 60;
-
-export function OtpForm({ phone }: { phone: string }) {
+export function OtpForm({ phone, resendSeconds }: { phone: string; resendSeconds: number }) {
   const t = useTranslations("signup");
   const [state, action] = useActionState(verifySignupCodeAction, null);
   const codeErrors = fieldErrorsOf(state, "code");
@@ -135,36 +133,14 @@ export function OtpForm({ phone }: { phone: string }) {
         <FieldMessage id="f-code-msg" errors={codeErrors} />
         <SubmitButton>{t("verify")}</SubmitButton>
       </form>
-      <ResendForm phone={phone} />
+      <ResendCodeForm
+        action={resendSignupCodeAction}
+        fields={{ phone }}
+        initialSeconds={resendSeconds}
+        label={t("resend")}
+        countdown={(seconds) => t("resendIn", { seconds })}
+      />
     </div>
-  );
-}
-
-function ResendForm({ phone }: { phone: string }) {
-  const t = useTranslations("signup");
-  const [state, action] = useActionState(resendSignupCodeAction, null);
-  // Each successful resend returns a new sentAt, which restarts the countdown.
-  const sentAt = state?.ok ? String(state.data?.sentAt) : "initial";
-  return (
-    <form action={action} className="flex flex-col items-center gap-2" noValidate>
-      <input type="hidden" name="phone" value={phone} />
-      <FormMessage state={state} />
-      <ResendButton key={sentAt} label={t("resend")} countdown={(seconds) => t("resendIn", { seconds })} />
-    </form>
-  );
-}
-
-function ResendButton({ label, countdown }: { label: string; countdown: (seconds: number) => string }) {
-  const [seconds, setSeconds] = useState(RESEND_SECONDS);
-  useEffect(() => {
-    if (seconds <= 0) return;
-    const timer = setTimeout(() => setSeconds((s) => s - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [seconds]);
-  return (
-    <Button type="submit" variant="ghost" size="sm" disabled={seconds > 0}>
-      {seconds > 0 ? countdown(seconds) : label}
-    </Button>
   );
 }
 

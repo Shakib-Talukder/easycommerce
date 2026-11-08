@@ -5,7 +5,13 @@ import type { Identifier } from "@repo/db/validation";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { consumeHandoff, createHandoff } from "../src/auth/handoff";
 import { signSessionToken } from "../src/auth/jwt";
-import { loadStoreContext, requestLoginCode, verifyLoginCode, type StoreContext } from "../src/auth/otp";
+import {
+  loadStoreContext,
+  loginResendSecondsLeft,
+  requestLoginCode,
+  verifyLoginCode,
+  type StoreContext,
+} from "../src/auth/otp";
 import { createSession, refreshSession, revokeSession, validateSession } from "../src/auth/sessions";
 import { deactivateStaff, inviteStaff } from "../src/auth/staff";
 import { MemoryKeyValueStore, setKeyValueStore } from "../src/kv";
@@ -50,7 +56,7 @@ describe("login OTP", () => {
   it("sends a code, verifies it once, and never again", async () => {
     expect(
       await requestLoginCode({ store: storeA, identifier: phoneId(ownerA.phone), ip: nextIp() }),
-    ).toEqual({ ok: true });
+    ).toEqual({ ok: true, cooldownSeconds: 60 });
     const code = codes.last(ownerA.phone);
 
     const ok = await verifyLoginCode({ storeId: storeA.id, identifier: phoneId(ownerA.phone), code });
@@ -75,6 +81,7 @@ describe("login OTP", () => {
     const stranger = testPhone();
     expect(await requestLoginCode({ store: storeA, identifier: phoneId(stranger), ip: nextIp() })).toEqual({
       ok: true,
+      cooldownSeconds: 60,
     });
     expect(codes.messages.find((m) => m.to === stranger)).toBeUndefined();
     expect(
@@ -124,14 +131,57 @@ describe("login OTP", () => {
   });
 
   it("rate-limits the 4th send to one identifier within 15 minutes", async () => {
+    // A separate clock for the 60 s cooldown: each send is 61 s after the previous one.
+    let now = Date.now();
+    const kv = new MemoryKeyValueStore({ now: () => now });
     const results = [];
     for (let i = 0; i < 4; i++) {
       results.push(
-        await requestLoginCode({ store: storeA, identifier: phoneId(ownerA.phone), ip: nextIp() }),
+        await requestLoginCode({ store: storeA, identifier: phoneId(ownerA.phone), ip: nextIp(), kv }),
       );
+      now += 61_000;
     }
     expect(results.map((r) => r.ok)).toEqual([true, true, true, false]);
     expect(results[3]).toEqual({ ok: false, error: "RATE_LIMITED" });
+  });
+
+  it("enforces a 60 s cooldown per identifier (known or not), reporting secondsLeft", async () => {
+    let now = Date.now();
+    const kv = new MemoryKeyValueStore({ now: () => now });
+    const send = (identifier: Identifier) =>
+      requestLoginCode({ store: storeA, identifier, ip: nextIp(), kv });
+    const owner = phoneId(ownerA.phone);
+    expect(await send(owner)).toEqual({ ok: true, cooldownSeconds: 60 });
+    const sent = codes.messages.length;
+
+    now += 15_000;
+    expect(await send(owner)).toEqual({ ok: false, error: "RESEND_COOLDOWN", secondsLeft: 45 });
+    expect(codes.messages.length).toBe(sent); // nothing sent
+    expect(await loginResendSecondsLeft(storeA.id, owner, kv)).toBe(45);
+
+    // Unknown identifiers behave the same, so the cooldown doesn't reveal who has an account.
+    const stranger = phoneId(testPhone());
+    expect(await send(stranger)).toEqual({ ok: true, cooldownSeconds: 60 });
+    expect((await send(stranger)).ok).toBe(false);
+
+    // Per store: the same phone can get a code for another store right away.
+    expect((await requestLoginCode({ store: storeB, identifier: owner, ip: nextIp(), kv })).ok).toBe(true);
+
+    now += 46_000;
+    expect(await loginResendSecondsLeft(storeA.id, owner, kv)).toBe(0);
+    expect(await send(owner)).toEqual({ ok: true, cooldownSeconds: 60 });
+    expect(codes.messages.length).toBe(sent + 1);
+  });
+
+  it("lets only one of two concurrent requests send", async () => {
+    const kv = new MemoryKeyValueStore();
+    const owner = phoneId(ownerA.phone);
+    const results = await Promise.all([
+      requestLoginCode({ store: storeA, identifier: owner, ip: nextIp(), kv }),
+      requestLoginCode({ store: storeA, identifier: owner, ip: nextIp(), kv }),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.find((r) => !r.ok)).toMatchObject({ error: "RESEND_COOLDOWN" });
   });
 });
 

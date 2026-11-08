@@ -8,11 +8,12 @@ import {
   checkSubdomainRateLimit,
   createStoreFromTicket,
   readSignupTicket,
+  signupResendSecondsLeft,
   startPhoneSignup,
   verifyPhoneSignup,
 } from "../src/auth/signup";
-import { MemoryKeyValueStore, setKeyValueStore } from "../src/kv";
-import { KvRateLimiter } from "../src/rate-limit";
+import { MemoryKeyValueStore, getKeyValueStore, setKeyValueStore } from "../src/kv";
+import { KvRateLimiter, releaseOtpCooldown } from "../src/rate-limit";
 import { captureCodes, createTestStore, deleteStores, testPhone } from "./helpers";
 
 const created: string[] = [];
@@ -36,7 +37,12 @@ afterAll(async () => {
 
 /** Phone → OTP → ticket. Uses its own limiter so tests don't share rate-limit buckets. */
 async function ticketFor(phone: string): Promise<string> {
-  expect(await startPhoneSignup({ phone, ip: nextIp(), limiter: freshLimiter() })).toEqual({ ok: true });
+  // Several stores per phone in a row: skip the 60 s resend cooldown (tested separately).
+  await releaseOtpCooldown(await getKeyValueStore(), "signup", phone);
+  expect(await startPhoneSignup({ phone, ip: nextIp(), limiter: freshLimiter() })).toEqual({
+    ok: true,
+    cooldownSeconds: 60,
+  });
   const verified = await verifyPhoneSignup({ phone, code: codes.last(phone) });
   if (!verified.ok) throw new Error(verified.error);
   return verified.ticket;
@@ -127,9 +133,16 @@ describe("phone-first signup", () => {
   it("rate-limits the 4th code to one phone within 15 minutes, and 10 per IP per hour", async () => {
     const limiter = freshLimiter();
     const phone = testPhone();
+    // The 60 s cooldown runs on its own clock: each send is 61 s after the previous one.
+    let now = Date.now();
+    const kv = new MemoryKeyValueStore({ now: () => now });
     const results = [];
-    for (let i = 0; i < 4; i++) results.push(await startPhoneSignup({ phone, ip: nextIp(), limiter }));
-    expect(results).toEqual([{ ok: true }, { ok: true }, { ok: true }, { ok: false, error: "RATE_LIMITED" }]);
+    for (let i = 0; i < 4; i++) {
+      results.push(await startPhoneSignup({ phone, ip: nextIp(), limiter, kv }));
+      now += 61_000;
+    }
+    const sent = { ok: true, cooldownSeconds: 60 };
+    expect(results).toEqual([sent, sent, sent, { ok: false, error: "RATE_LIMITED" }]);
 
     const sameIp = [];
     for (let i = 0; i < 11; i++)
@@ -174,6 +187,48 @@ describe("phone-first signup", () => {
     // The loser can retry with a suggestion using the same ticket.
     const loserTicket = results[0]!.ok ? t2 : t1;
     expect((await create(loserTicket, suggestions[0]!)).ok).toBe(true);
+  });
+});
+
+describe("signup resend cooldown", () => {
+  it("refuses a second code within 60 s with secondsLeft, without using the 15-minute budget", async () => {
+    let now = Date.now();
+    const kv = new MemoryKeyValueStore({ now: () => now });
+    const limiter = freshLimiter();
+    const phone = testPhone();
+    expect(await startPhoneSignup({ phone, ip: nextIp(), limiter, kv })).toEqual({
+      ok: true,
+      cooldownSeconds: 60,
+    });
+    const first = codes.last(phone);
+    now += 20_000;
+    expect(await startPhoneSignup({ phone, ip: nextIp(), limiter, kv })).toEqual({
+      ok: false,
+      error: "RESEND_COOLDOWN",
+      secondsLeft: 40,
+    });
+    expect(await signupResendSecondsLeft(phone, kv)).toBe(40);
+    expect(codes.last(phone)).toBe(first);
+    // Waiting didn't count: after the cooldown there are still 2 sends left in the 15-minute window.
+    now += 41_000;
+    expect((await startPhoneSignup({ phone, ip: nextIp(), limiter, kv })).ok).toBe(true);
+    now += 61_000;
+    expect((await startPhoneSignup({ phone, ip: nextIp(), limiter, kv })).ok).toBe(true);
+    now += 61_000;
+    expect(await startPhoneSignup({ phone, ip: nextIp(), limiter, kv })).toEqual({
+      ok: false,
+      error: "RATE_LIMITED",
+    });
+  });
+
+  it("lets only one of two concurrent sends through", async () => {
+    const kv = new MemoryKeyValueStore();
+    const phone = testPhone();
+    const results = await Promise.all([
+      startPhoneSignup({ phone, ip: nextIp(), limiter: freshLimiter(), kv }),
+      startPhoneSignup({ phone, ip: nextIp(), limiter: freshLimiter(), kv }),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
   });
 });
 

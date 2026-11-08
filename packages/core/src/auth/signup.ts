@@ -6,7 +6,15 @@ import { SUBDOMAIN_PATTERN, slugifySubdomain } from "@repo/db/validation";
 import { otpTtlSeconds } from "../env";
 import { getKeyValueStore, type KeyValueStore } from "../kv";
 import { sendOtpMessage } from "../notify";
-import { checkOtpSendLimits, getRateLimiter, type RateLimiter } from "../rate-limit";
+import {
+  OTP_RESEND_COOLDOWN_SECONDS,
+  checkOtpSendLimits,
+  claimOtpCooldown,
+  getRateLimiter,
+  otpCooldownSecondsLeft,
+  releaseOtpCooldown,
+  type RateLimiter,
+} from "../rate-limit";
 import { OTP_MAX_ATTEMPTS, generateOtp, hashOtp, randomToken, sha256Hex, verifyOtpHash } from "./crypto";
 
 /**
@@ -48,32 +56,54 @@ async function storesOpenedRecently(phone: string, db: Pick<TenantTx, "$queryRaw
 // 1 + 2: OTP and ticket
 // ---------------------------------------------------------------------------
 
-export type StartPhoneSignupResult = { ok: true } | { ok: false; error: "RATE_LIMITED" | "STORE_LIMIT" };
+export type StartPhoneSignupResult =
+  | { ok: true; cooldownSeconds: number }
+  | { ok: false; error: "RATE_LIMITED" | "STORE_LIMIT" | "SEND_FAILED" }
+  | { ok: false; error: "RESEND_COOLDOWN"; secondsLeft: number };
 
-/** Sends a signup code to `phone` (E.164). 3 per phone per 15 min, 10 per IP per hour. */
+/** Seconds until `phone` can request another signup code (for the client countdown). */
+export async function signupResendSecondsLeft(phone: string, kv?: KeyValueStore): Promise<number> {
+  return otpCooldownSecondsLeft(kv ?? (await getKeyValueStore()), SCOPE, phone);
+}
+
+/**
+ * Sends a signup code to `phone` (E.164). At most one per 60 s (RESEND_COOLDOWN),
+ * 3 per phone per 15 min, 10 per IP per hour.
+ */
 export async function startPhoneSignup(
   input: { phone: string; ip: string; language?: "bn" | "en" } & Deps,
 ): Promise<StartPhoneSignupResult> {
   const { phone, ip } = input;
   if ((await storesOpenedRecently(phone)) >= STORES_PER_PHONE.max) return { ok: false, error: "STORE_LIMIT" };
+  const kv = input.kv ?? (await getKeyValueStore());
+  // Cooldown first, so waiting doesn't use up the 15-minute / hourly budget.
+  const wait = await otpCooldownSecondsLeft(kv, SCOPE, phone);
+  if (wait > 0) return { ok: false, error: "RESEND_COOLDOWN", secondsLeft: wait };
   const limiter = input.limiter ?? (await getRateLimiter());
   if (!(await checkOtpSendLimits(limiter, SCOPE, phone, ip))) return { ok: false, error: "RATE_LIMITED" };
+  const claim = await claimOtpCooldown(kv, SCOPE, phone);
+  if (!claim.ok) return { ok: false, error: "RESEND_COOLDOWN", secondsLeft: claim.secondsLeft };
 
-  const kv = input.kv ?? (await getKeyValueStore());
   const ttl = otpTtlSeconds();
   const code = generateOtp();
   await kv.set(otpKey(phone), hashOtp(SCOPE, phone, code), ttl);
   await kv.del(attemptsKey(phone));
 
-  await sendOtpMessage({
-    to: { kind: "phone", value: phone },
-    code,
-    purpose: "SIGNUP",
-    storeName: "EasyCommerce",
-    language: input.language ?? "bn",
-    ttlMinutes: Math.round(ttl / 60),
-  });
-  return { ok: true };
+  try {
+    await sendOtpMessage({
+      to: { kind: "phone", value: phone },
+      code,
+      purpose: "SIGNUP",
+      storeName: "EasyCommerce",
+      language: input.language ?? "bn",
+      ttlMinutes: Math.round(ttl / 60),
+    });
+  } catch (error) {
+    console.error(`[signup] OTP send failed: ${String((error as Error)?.message ?? error)}`);
+    await releaseOtpCooldown(kv, SCOPE, phone);
+    return { ok: false, error: "SEND_FAILED" };
+  }
+  return { ok: true, cooldownSeconds: OTP_RESEND_COOLDOWN_SECONDS };
 }
 
 export type SignupTicket = { phone: string; expiresAt: number };

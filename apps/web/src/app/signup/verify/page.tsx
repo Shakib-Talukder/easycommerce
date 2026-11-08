@@ -1,3 +1,4 @@
+import { signupResendSecondsLeft } from "@repo/core";
 import { normalizeBdPhone } from "@repo/db/validation";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -16,10 +17,10 @@ type Props = { searchParams: Promise<{ phone?: string }> };
 export default async function SignupVerifyPage({ searchParams }: Props) {
   const phone = normalizeBdPhone((await searchParams).phone ?? "");
   if (!phone) redirect("/signup");
-  const t = await getTranslations("signup");
+  const [t, resendSeconds] = await Promise.all([getTranslations("signup"), signupResendSecondsLeft(phone)]);
   return (
     <SignupShell step={2} title={t("otpTitle")} description={t("otpSent", { phone })}>
-      <OtpForm phone={phone} />
+      <OtpForm phone={phone} resendSeconds={resendSeconds} />
       <Link href="/signup" className="text-center text-sm underline">
         {t("changePhone")}
       </Link>

@@ -14,6 +14,14 @@ export class RedisKeyValueStore implements KeyValueStore {
     await this.redis.set(key, value, "EX", ttlSeconds);
   }
 
+  async setIfAbsent(key: string, value: string, ttlSeconds: number) {
+    return (await this.redis.set(key, value, "EX", ttlSeconds, "NX")) === "OK";
+  }
+
+  async ttl(key: string) {
+    return Math.max(0, await this.redis.ttl(key));
+  }
+
   async del(key: string) {
     return (await this.redis.del(key)) > 0;
   }

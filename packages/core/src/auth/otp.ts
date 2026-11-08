@@ -2,7 +2,16 @@ import { forStore, storeDisplayName, withStore, type StoreStatus, type TenantTx 
 import type { Identifier } from "@repo/db/validation";
 import { otpTtlSeconds } from "../env";
 import { sendOtpMessage } from "../notify";
-import { checkOtpSendLimits, getRateLimiter, type RateLimiter } from "../rate-limit";
+import { getKeyValueStore, type KeyValueStore } from "../kv";
+import {
+  OTP_RESEND_COOLDOWN_SECONDS,
+  checkOtpSendLimits,
+  claimOtpCooldown,
+  getRateLimiter,
+  otpCooldownSecondsLeft,
+  releaseOtpCooldown,
+  type RateLimiter,
+} from "../rate-limit";
 import { OTP_MAX_ATTEMPTS, generateOtp, hashOtp, verifyOtpHash } from "./crypto";
 import type { Role } from "./jwt";
 
@@ -22,7 +31,17 @@ export type StoreContext = {
   onboardingCompleted: boolean;
 };
 
-export type SendCodeResult = { ok: true } | { ok: false; error: "RATE_LIMITED" };
+export type SendCodeResult =
+  | { ok: true; cooldownSeconds: number }
+  | { ok: false; error: "RATE_LIMITED" | "SEND_FAILED" }
+  | { ok: false; error: "RESEND_COOLDOWN"; secondsLeft: number };
+
+const loginScope = (storeId: string) => `store:${storeId}`;
+
+/** Seconds until `identifier` can request another login code in this store. */
+export async function loginResendSecondsLeft(storeId: string, identifier: Identifier, kv?: KeyValueStore) {
+  return otpCooldownSecondsLeft(kv ?? (await getKeyValueStore()), loginScope(storeId), identifier.value);
+}
 
 export type VerifyCodeResult =
   | { ok: true; user: { id: string; role: Role; name: string } }
@@ -59,19 +78,27 @@ export async function issueOtp(
 
 /**
  * Sends a login code if `identifier` belongs to an active user of the store.
- * The response is the same whether or not the user exists.
+ * The response is the same whether or not the user exists (the 60 s cooldown
+ * and the rate limits apply to unknown identifiers too).
  */
 export async function requestLoginCode(input: {
   store: StoreContext;
   identifier: Identifier;
   ip: string;
   limiter?: RateLimiter;
+  kv?: KeyValueStore;
 }): Promise<SendCodeResult> {
   const { store, identifier, ip } = input;
+  const scope = loginScope(store.id);
+  const kv = input.kv ?? (await getKeyValueStore());
+  const wait = await otpCooldownSecondsLeft(kv, scope, identifier.value);
+  if (wait > 0) return { ok: false, error: "RESEND_COOLDOWN", secondsLeft: wait };
   const limiter = input.limiter ?? (await getRateLimiter());
-  if (!(await checkOtpSendLimits(limiter, `store:${store.id}`, identifier.value, ip))) {
+  if (!(await checkOtpSendLimits(limiter, scope, identifier.value, ip))) {
     return { ok: false, error: "RATE_LIMITED" };
   }
+  const claim = await claimOtpCooldown(kv, scope, identifier.value);
+  if (!claim.ok) return { ok: false, error: "RESEND_COOLDOWN", secondsLeft: claim.secondsLeft };
 
   const code = await withStore(store.id, async (tx) => {
     const user = await tx.user.findFirst({
@@ -82,16 +109,22 @@ export async function requestLoginCode(input: {
   });
 
   if (code) {
-    await sendOtpMessage({
-      to: identifier,
-      code,
-      purpose: "LOGIN",
-      storeName: store.name,
-      language: store.language,
-      ttlMinutes: Math.round(otpTtlSeconds() / 60),
-    });
+    try {
+      await sendOtpMessage({
+        to: identifier,
+        code,
+        purpose: "LOGIN",
+        storeName: store.name,
+        language: store.language,
+        ttlMinutes: Math.round(otpTtlSeconds() / 60),
+      });
+    } catch (error) {
+      console.error(`[login] OTP send failed: ${String((error as Error)?.message ?? error)}`);
+      await releaseOtpCooldown(kv, scope, identifier.value);
+      return { ok: false, error: "SEND_FAILED" };
+    }
   }
-  return { ok: true };
+  return { ok: true, cooldownSeconds: OTP_RESEND_COOLDOWN_SECONDS };
 }
 
 /**

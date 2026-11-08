@@ -3,6 +3,10 @@ export interface KeyValueStore {
   readonly kind: "redis" | "memory";
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttlSeconds: number): Promise<void>;
+  /** SET NX EX: stores the value only if the key is absent. Returns true when it was stored. */
+  setIfAbsent(key: string, value: string, ttlSeconds: number): Promise<boolean>;
+  /** Seconds until `key` expires, or 0 when it doesn't exist. */
+  ttl(key: string): Promise<number>;
   /** Returns true when the key existed. */
   del(key: string): Promise<boolean>;
   /** Atomically reads and deletes. Exactly one concurrent caller gets the value. */

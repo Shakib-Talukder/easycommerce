@@ -44,7 +44,10 @@
     "verifyTitle": "Enter your code",
     "code": "6-digit code",
     "verifySubmit": "Log in",
-    "useOther": "Use a different email or number"
+    "useOther": "Use a different email or number",
+    "resend": "Resend code",
+    "resendIn": "Resend in {seconds, number}s",
+    "resent": "If an account exists, a new code is on its way."
   },
   "signup": {
     "metaTitle": "Open your store",
@@ -218,6 +221,8 @@
     "SUBDOMAIN_RESERVED": "This address is reserved. Pick another one.",
     "SUBDOMAIN_TAKEN": "That store address is already taken.",
     "RATE_LIMITED": "Too many requests. Please wait a few minutes and try again.",
+    "RESEND_COOLDOWN": "A code was just sent. Wait {seconds, number} seconds before asking for a new one.",
+    "SEND_FAILED": "We couldn't send the code right now. Please try again in a moment.",
     "INVALID_CODE": "That code is wrong or has expired.",
     "TOO_MANY_ATTEMPTS": "Too many wrong attempts. Request a new code.",
     "TICKET_INVALID": "Your signup session has expired. Please verify your number again.",

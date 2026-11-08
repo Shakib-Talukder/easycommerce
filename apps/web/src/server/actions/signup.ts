@@ -14,7 +14,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-result";
 import { SIGNUP_TICKET_COOKIE } from "@/lib/signup";
-import { failure, validationFailure } from "../i18n";
+import { failure, sendFailure, validationFailure } from "../i18n";
 import { clientIp, requestProtocol } from "../request";
 
 const phoneSchema = z.object({
@@ -26,8 +26,8 @@ async function sendCode(formData: FormData) {
   if (!parsed.success) return { state: await validationFailure(parsed.error) };
   const { phone } = parsed.data;
   const result = await startPhoneSignup({ phone, ip: await clientIp(), language: await getLocale() });
-  if (!result.ok) return { state: await failure(result.error) };
-  return { phone };
+  if (!result.ok) return { state: await sendFailure(result) };
+  return { phone, cooldownSeconds: result.cooldownSeconds };
 }
 
 /** Screen 1: phone → OTP by SMS. */
@@ -37,11 +37,15 @@ export async function sendSignupCodeAction(_prev: ActionState, formData: FormDat
   redirect(`/signup/verify?${new URLSearchParams({ phone: sent.phone })}`);
 }
 
-/** Screen 2: "Resend code" (same limits as the first send). */
+/** Screen 2: "Resend code" (60 s server-side cooldown, plus the same limits as the first send). */
 export async function resendSignupCodeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const sent = await sendCode(formData);
   if (sent.state) return sent.state;
-  return { ok: true, message: (await getTranslations("signup"))("resent"), data: { sentAt: Date.now() } };
+  return {
+    ok: true,
+    message: (await getTranslations("signup"))("resent"),
+    data: { sentAt: Date.now(), cooldownSeconds: sent.cooldownSeconds },
+  };
 }
 
 const verifySchema = z.object({

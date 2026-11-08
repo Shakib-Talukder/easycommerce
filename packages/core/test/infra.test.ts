@@ -1,5 +1,3 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { generateOtp, hashOtp, safeEqualHex, verifyOtpHash } from "../src/auth/crypto";
 import { needsRefresh, signSessionToken, verifySessionToken } from "../src/auth/jwt";
@@ -17,6 +15,20 @@ import { KvRateLimiter, checkOtpSendLimits } from "../src/rate-limit";
 afterEach(() => {
   vi.unstubAllEnvs();
   setKeyValueStore(undefined);
+});
+
+describe("MemoryKeyValueStore setIfAbsent/ttl", () => {
+  it("stores only when absent and reports the remaining TTL", async () => {
+    let now = 0;
+    const kv = new MemoryKeyValueStore({ now: () => now });
+    expect(await kv.setIfAbsent("k", "1", 60)).toBe(true);
+    expect(await kv.setIfAbsent("k", "2", 60)).toBe(false);
+    now = 20_500;
+    expect(await kv.ttl("k")).toBe(40);
+    now = 60_000;
+    expect(await kv.ttl("k")).toBe(0);
+    expect(await kv.setIfAbsent("k", "3", 60)).toBe(true);
+  });
 });
 
 describe("MemoryKeyValueStore", () => {
@@ -90,38 +102,39 @@ describe("getKeyValueStore", () => {
   });
 });
 
-describe("RedisKeyValueStore against scripts/local-redis.ts", () => {
-  const port = 6390 + Math.floor(Math.random() * 100);
-  let server: ChildProcess;
+// A real Redis (default: DB 15 on 127.0.0.1:6379, override with REDIS_TEST_URL). Skipped when unreachable.
+const redisTestUrl = process.env.REDIS_TEST_URL || "redis://127.0.0.1:6379/15";
+const redisReachable = await connectRedis(redisTestUrl, 1000)
+  .then(async (r) => (await r.quit(), true))
+  .catch(() => false);
+
+describe.skipIf(!redisReachable)(`RedisKeyValueStore against a real Redis (${redisTestUrl})`, () => {
+  const p = `test:${Date.now()}:${Math.random().toString(36).slice(2)}:`;
   let kv: RedisKeyValueStore;
 
   beforeAll(async () => {
-    const tsx = path.resolve(import.meta.dirname, "../node_modules/tsx/dist/cli.mjs");
-    server = spawn(process.execPath, [tsx, path.resolve(import.meta.dirname, "../scripts/local-redis.ts")], {
-      env: { ...process.env, REDIS_PORT: String(port) },
-      stdio: ["ignore", "pipe", "inherit"],
-    });
-    await new Promise<void>((resolve, reject) => {
-      server.stdout?.on("data", (d: Buffer) => d.toString().includes("ready") && resolve());
-      server.on("exit", (code) => reject(new Error(`local-redis exited with ${code}`)));
-    });
-    kv = new RedisKeyValueStore(await connectRedis(`redis://127.0.0.1:${port}`));
+    kv = new RedisKeyValueStore(await connectRedis(redisTestUrl));
   });
 
   afterAll(async () => {
+    for (const k of ["a", "c", "n"]) await kv?.del(p + k);
     await kv?.quit();
-    server?.kill();
   });
 
   it("implements the KeyValueStore contract", async () => {
-    await kv.set("r:a", "1", 60);
-    expect(await kv.get("r:a")).toBe("1");
-    expect(await kv.take("r:a")).toBe("1");
-    expect(await kv.take("r:a")).toBeNull();
-    expect(await kv.incr("r:c", 60)).toBe(1);
-    expect(await kv.incr("r:c", 60)).toBe(2);
-    expect(await kv.del("r:c")).toBe(true);
-    expect(await kv.del("r:c")).toBe(false);
+    await kv.set(p + "a", "1", 60);
+    expect(await kv.get(p + "a")).toBe("1");
+    expect(await kv.ttl(p + "a")).toBeGreaterThan(55);
+    expect(await kv.take(p + "a")).toBe("1");
+    expect(await kv.take(p + "a")).toBeNull();
+    expect(await kv.ttl(p + "a")).toBe(0);
+    expect(await kv.incr(p + "c", 60)).toBe(1);
+    expect(await kv.incr(p + "c", 60)).toBe(2);
+    expect(await kv.del(p + "c")).toBe(true);
+    expect(await kv.del(p + "c")).toBe(false);
+    expect(await kv.setIfAbsent(p + "n", "x", 60)).toBe(true);
+    expect(await kv.setIfAbsent(p + "n", "y", 60)).toBe(false);
+    expect(await kv.get(p + "n")).toBe("x");
   });
 });
 

@@ -1,3 +1,5 @@
+import { loginResendSecondsLeft } from "@repo/core";
+import { identifierSchema } from "@repo/db/validation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@repo/ui";
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
@@ -17,6 +19,8 @@ export default async function VerifyPage({ searchParams }: Props) {
   const { identifier } = await searchParams;
   if (!identifier) redirect("/admin/login");
   const [store, t] = await Promise.all([getCurrentStore(), getTranslations("auth")]);
+  const parsed = identifierSchema.safeParse(identifier);
+  const resendSeconds = parsed.success ? await loginResendSecondsLeft(store.id, parsed.data) : 0;
 
   return (
     <div className="flex flex-col gap-8">
@@ -30,7 +34,7 @@ export default async function VerifyPage({ searchParams }: Props) {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <VerifyForm identifier={identifier} />
+            <VerifyForm identifier={identifier} resendSeconds={resendSeconds} />
             <Link href="/admin/login" className="text-center text-sm underline">
               {t("useOther")}
             </Link>

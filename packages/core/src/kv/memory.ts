@@ -32,6 +32,17 @@ export class MemoryKeyValueStore implements KeyValueStore {
     this.entries.set(key, { value, expiresAt: this.now() + ttlSeconds * 1000 });
   }
 
+  async setIfAbsent(key: string, value: string, ttlSeconds: number) {
+    if (this.live(key)) return false;
+    this.entries.set(key, { value, expiresAt: this.now() + ttlSeconds * 1000 });
+    return true;
+  }
+
+  async ttl(key: string) {
+    const entry = this.live(key);
+    return entry ? Math.ceil((entry.expiresAt - this.now()) / 1000) : 0;
+  }
+
   async del(key: string) {
     const existed = this.live(key) !== undefined;
     this.entries.delete(key);
