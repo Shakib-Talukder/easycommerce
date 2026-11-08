@@ -13,9 +13,15 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const { user, store } = await requireUser();
   if (!store.onboardingCompleted && user.role === "OWNER") redirect("/admin/onboarding");
 
-  const [t, to] = await Promise.all([getTranslations("common"), getTranslations("onboarding")]);
+  const [t, to, tcat] = await Promise.all([
+    getTranslations("common"),
+    getTranslations("onboarding"),
+    getTranslations("catalog.nav"),
+  ]);
   const links = [
     { href: "/admin", label: t("nav.dashboard"), show: true },
+    { href: "/admin/products", label: tcat("products"), show: can(user.role, "catalog:manage") },
+    { href: "/admin/categories", label: tcat("categories"), show: can(user.role, "catalog:manage") },
     { href: "/admin/staff", label: t("nav.staff"), show: can(user.role, "staff:manage") },
     { href: "/admin/settings", label: t("nav.settings"), show: can(user.role, "settings:manage") },
   ].filter((l) => l.show);

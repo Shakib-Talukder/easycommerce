@@ -3,7 +3,7 @@
  * Web Worker: decodes a photo (EXIF orientation applied), resizes and re-encodes
  * it with OffscreenCanvas, off the main thread. See image-compress.ts.
  */
-import { encodeLoop } from "./image-compress";
+import { encodeLoop } from "./image-encode";
 
 declare const self: DedicatedWorkerGlobalScope;
 

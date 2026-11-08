@@ -10,7 +10,8 @@
     "./sms": "./src/notify/sms.ts",
     "./color": "./src/store/color.ts",
     "./locations": "./src/store/locations.ts",
-    "./social": "./src/store/social.ts"
+    "./social": "./src/store/social.ts",
+    "./catalog-client": "./src/catalog/client.ts"
   },
   "scripts": {
     "redis:local": "tsx scripts/local-redis.ts",
