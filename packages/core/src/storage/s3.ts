@@ -1,5 +1,11 @@
-import { DeleteObjectCommand, PutObjectCommand, S3Client, type ObjectCannedACL } from "@aws-sdk/client-s3";
-import { assertSafeKey, type StorageProvider } from "./types";
+import {
+  DeleteObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+  type ObjectCannedACL,
+} from "@aws-sdk/client-s3";
+import { assertSafeKey, type StorageProvider, type StoredObject } from "./types";
 
 export type S3Config = {
   /** e.g. https://<account>.r2.cloudflarestorage.com or https://sgp1.digitaloceanspaces.com */
@@ -78,5 +84,18 @@ export class S3CompatibleProvider implements StorageProvider {
   publicUrl(key: string): string {
     assertSafeKey(key);
     return `${this.config.publicBaseUrl.replace(/\/+$/, "")}/${key}`;
+  }
+
+  async *list(prefix: string): AsyncIterable<StoredObject> {
+    let token: string | undefined;
+    do {
+      const page = await this.client.send(
+        new ListObjectsV2Command({ Bucket: this.config.bucket, Prefix: prefix, ContinuationToken: token }),
+      );
+      for (const o of page.Contents ?? []) {
+        if (o.Key) yield { key: o.Key, size: o.Size ?? 0, lastModified: o.LastModified ?? new Date(0) };
+      }
+      token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (token);
   }
 }

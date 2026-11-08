@@ -1,3 +1,6 @@
+/** One stored object, as listed by StorageProvider.list(). */
+export type StoredObject = { key: string; size: number; lastModified: Date };
+
 /** Object storage for user uploads (logos now, product images on Day 3). */
 export interface StorageProvider {
   readonly kind: "local" | "s3";
@@ -6,6 +9,8 @@ export interface StorageProvider {
   delete(key: string): Promise<void>;
   /** URL a browser can load the object from (CDN, public bucket, or the dev route). */
   publicUrl(key: string): string;
+  /** Every object whose key starts with `prefix` (e.g. "stores/"), in no particular order. */
+  list(prefix: string): AsyncIterable<StoredObject>;
 }
 
 /** Cache-Control for content-addressed (never overwritten) keys. */

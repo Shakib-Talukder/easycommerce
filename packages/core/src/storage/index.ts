@@ -6,7 +6,14 @@ import type { StorageProvider } from "./types";
 
 export { LocalDiskProvider } from "./local";
 export { S3CompatibleProvider, type S3Config } from "./s3";
-export { IMMUTABLE_CACHE_CONTROL, assertSafeKey, isSafeKey, type StorageProvider } from "./types";
+export {
+  IMMUTABLE_CACHE_CONTROL,
+  assertSafeKey,
+  isSafeKey,
+  type StorageProvider,
+  type StoredObject,
+} from "./types";
+export { sweepOrphans, type SweepOptions, type SweepResult } from "./sweep";
 
 /**
  * A production deployment has a real ROOT_DOMAIN. `next start` on a developer

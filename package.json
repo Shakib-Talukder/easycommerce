@@ -16,6 +16,7 @@
     "db:down": "docker compose down",
     "db:up:local": "pnpm --filter @repo/db db:local",
     "redis:up:local": "pnpm --filter @repo/core redis:local",
+    "storage:sweep": "pnpm --filter @repo/core storage:sweep",
     "db:migrate": "pnpm --filter @repo/db db:migrate",
     "db:deploy": "pnpm --filter @repo/db db:deploy",
     "db:seed": "pnpm --filter @repo/db db:seed",
