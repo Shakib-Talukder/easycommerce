@@ -232,9 +232,10 @@
     "ONBOARDING_INCOMPLETE": "Finish all the setup steps first.",
     "UPLOAD_MISSING": "Choose an image to upload.",
     "UPLOAD_TYPE": "Only JPG, PNG or WebP images can be uploaded.",
-    "UPLOAD_TOO_LARGE": "The image is larger than 5 MB.",
+    "UPLOAD_TOO_LARGE": "The image is too large (max 5 MB and 40 megapixels).",
     "UPLOAD_TOO_SMALL": "The image must be at least 128 × 128 pixels.",
     "UPLOAD_INVALID": "This image file is damaged or can't be read.",
-    "KEY_OUTSIDE_PREFIX": "That file doesn't belong to this store."
+    "KEY_OUTSIDE_PREFIX": "That file doesn't belong to this store.",
+    "ONBOARDING_STEP_LOCKED": "Finish the earlier steps first."
   }
 }

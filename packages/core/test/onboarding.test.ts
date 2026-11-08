@@ -141,11 +141,33 @@ describe("onboarding step persistence", () => {
     section: Parameters<typeof parseSection>[0],
     input: Record<string, unknown>,
     completeStep = true,
+    id = storeId,
   ) => {
     const parsed = parseSection(section, input);
     if (!parsed.ok) throw parsed.error;
-    await saveSettingsSection(storeId, parsed.value, { completeStep });
+    return saveSettingsSection(id, parsed.value, { completeStep });
   };
+
+  it("refuses to save or skip a later step before the earlier ones", async () => {
+    const other = (await pendingStore()).id;
+    expect(await save("delivery", { ...delivery, deliveryChargeInsideDhaka: "75" }, true, other)).toEqual({
+      ok: false,
+      error: "ONBOARDING_STEP_LOCKED",
+    });
+    expect(await save("payments", payments, true, other)).toEqual({
+      ok: false,
+      error: "ONBOARDING_STEP_LOCKED",
+    });
+    expect(await skipOnboardingStep(other, "branding")).toEqual({
+      ok: false,
+      error: "ONBOARDING_STEP_LOCKED",
+    });
+    // Nothing was written or advanced.
+    expect(await settingsOf(other)).toMatchObject({ onboardingStep: 0, deliveryChargeInsideDhaka: 6000 });
+    // Even if onboarding_step is forced to 4, launch needs the identity data.
+    await adminClient().storeSettings.update({ where: { storeId: other }, data: { onboardingStep: 4 } });
+    expect(await launchStore(other)).toEqual({ ok: false, error: "ONBOARDING_INCOMPLETE" });
+  });
 
   it("saves each step, advances onboarding_step and never moves it back", async () => {
     expect((await settingsOf(storeId)).onboardingStep).toBe(0);
@@ -187,7 +209,15 @@ describe("onboarding step persistence", () => {
 
   it("never re-activates a suspended store", async () => {
     const other = await pendingStore();
-    await adminClient().storeSettings.update({ where: { storeId: other.id }, data: { onboardingStep: 4 } });
+    await adminClient().storeSettings.update({
+      where: { storeId: other.id },
+      data: {
+        onboardingStep: 4,
+        contactPhone: "+8801711000000",
+        addressDivision: "dhaka",
+        addressDistrict: "dhaka",
+      },
+    });
     await adminClient().store.update({ where: { id: other.id }, data: { status: "SUSPENDED" } });
     expect(await launchStore(other.id)).toEqual({ ok: true });
     expect((await adminClient().store.findUnique({ where: { id: other.id } }))?.status).toBe("SUSPENDED");

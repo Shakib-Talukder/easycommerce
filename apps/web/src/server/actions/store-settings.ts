@@ -37,13 +37,15 @@ export async function saveSectionAction(_prev: ActionState, formData: FormData):
   const next = formData.get("return") === "finish" ? 5 : stepOf(section) + 1;
 
   if (onboarding && formData.get("intent") === "skip" && SKIPPABLE.has(section)) {
-    await skipOnboardingStep(store.id, section);
+    const skipped = await skipOnboardingStep(store.id, section);
+    if (!skipped.ok) return failure(skipped.error);
     redirect(`/admin/onboarding?step=${next}`);
   }
 
   const parsed = parseSection(section, Object.fromEntries(formData));
   if (!parsed.ok) return validationFailure(parsed.error);
-  await saveSettingsSection(store.id, parsed.value, { completeStep: onboarding });
+  const saved = await saveSettingsSection(store.id, parsed.value, { completeStep: onboarding });
+  if (!saved.ok) return failure(saved.error);
   revalidatePath("/", "layout");
 
   if (onboarding) redirect(`/admin/onboarding?step=${next}`);

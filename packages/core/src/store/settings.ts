@@ -179,10 +179,24 @@ function settingsUpdate(input: SectionInput) {
   }
 }
 
-/** onboarding_step = max(onboarding_step, step); never moves backwards. */
+export type OnboardingStepResult = { ok: true } | { ok: false; error: "ONBOARDING_STEP_LOCKED" };
+
+/** Steps can only be done in order: step n requires steps 1…n-1 (onboarding_step >= n-1). */
+async function assertStepReachable(tx: TenantTx, storeId: string, step: number): Promise<boolean> {
+  const s = await tx.storeSettings.findUniqueOrThrow({
+    where: { storeId },
+    select: { onboardingStep: true },
+  });
+  return s.onboardingStep >= step - 1;
+}
+
+/**
+ * Records wizard step `step` as done: onboarding_step moves from step-1 to step.
+ * Re-saving an earlier step is a no-op; it never moves backwards or skips ahead.
+ */
 async function completeOnboardingStep(tx: TenantTx, storeId: string, step: number) {
   await tx.storeSettings.updateMany({
-    where: { storeId, onboardingStep: { lt: step } },
+    where: { storeId, onboardingStep: step - 1 },
     data: { onboardingStep: step },
   });
 }
@@ -195,20 +209,34 @@ export async function saveSettingsSection(
   storeId: string,
   input: SectionInput,
   options: { completeStep?: boolean } = {},
-): Promise<void> {
-  await withStore(storeId, async (tx) => {
+): Promise<OnboardingStepResult> {
+  return withStore(storeId, async (tx): Promise<OnboardingStepResult> => {
+    // In the wizard, a later step can't be saved (and so marked done) before the earlier ones.
+    if (options.completeStep && !(await assertStepReachable(tx, storeId, stepOf(input.section)))) {
+      return { ok: false, error: "ONBOARDING_STEP_LOCKED" };
+    }
     if (input.section === "identity") {
       const { nameBn, nameEn } = input.data;
       await tx.store.update({ where: { id: storeId }, data: { nameBn, nameEn } });
     }
     await tx.storeSettings.update({ where: { storeId }, data: settingsUpdate(input) });
     if (options.completeStep) await completeOnboardingStep(tx, storeId, stepOf(input.section));
+    return { ok: true };
   });
 }
 
 /** "Skip for now": marks a wizard step done without saving anything. */
-export async function skipOnboardingStep(storeId: string, section: SettingsSection): Promise<void> {
-  await withStore(storeId, (tx) => completeOnboardingStep(tx, storeId, stepOf(section)));
+export async function skipOnboardingStep(
+  storeId: string,
+  section: SettingsSection,
+): Promise<OnboardingStepResult> {
+  return withStore(storeId, async (tx): Promise<OnboardingStepResult> => {
+    if (!(await assertStepReachable(tx, storeId, stepOf(section)))) {
+      return { ok: false, error: "ONBOARDING_STEP_LOCKED" };
+    }
+    await completeOnboardingStep(tx, storeId, stepOf(section));
+    return { ok: true };
+  });
 }
 
 export type LaunchResult =
@@ -220,6 +248,10 @@ export async function launchStore(storeId: string): Promise<LaunchResult> {
   return withStore(storeId, async (tx): Promise<LaunchResult> => {
     const s = await tx.storeSettings.findUniqueOrThrow({ where: { storeId } });
     if (s.onboardingStep < ONBOARDING_STEP_COUNT) return { ok: false, error: "ONBOARDING_INCOMPLETE" };
+    // Defence in depth: the identity step's required fields must really be there.
+    if (!s.contactPhone || !findDistrict(s.addressDivision, s.addressDistrict)) {
+      return { ok: false, error: "ONBOARDING_INCOMPLETE" };
+    }
     if (!s.codEnabled && !s.bkashEnabled && !s.nagadEnabled) {
       return { ok: false, error: "PAYMENT_METHOD_REQUIRED" };
     }

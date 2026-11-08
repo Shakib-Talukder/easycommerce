@@ -232,9 +232,10 @@
     "ONBOARDING_INCOMPLETE": "আগে সেটআপের সব ধাপ শেষ করুন।",
     "UPLOAD_MISSING": "আপলোডের জন্য একটি ছবি বেছে নিন।",
     "UPLOAD_TYPE": "শুধু JPG, PNG বা WebP ছবি আপলোড করা যাবে।",
-    "UPLOAD_TOO_LARGE": "ছবিটি ৫ MB এর বেশি বড়।",
+    "UPLOAD_TOO_LARGE": "ছবিটি অনেক বড় (সর্বোচ্চ ৫ MB এবং ৪০ মেগাপিক্সেল)।",
     "UPLOAD_TOO_SMALL": "ছবিটি অন্তত ১২৮ × ১২৮ পিক্সেল হতে হবে।",
     "UPLOAD_INVALID": "ছবির ফাইলটি নষ্ট বা পড়া যাচ্ছে না।",
-    "KEY_OUTSIDE_PREFIX": "এই ফাইলটি এই দোকানের নয়।"
+    "KEY_OUTSIDE_PREFIX": "এই ফাইলটি এই দোকানের নয়।",
+    "ONBOARDING_STEP_LOCKED": "আগের ধাপগুলো আগে শেষ করুন।"
   }
 }
