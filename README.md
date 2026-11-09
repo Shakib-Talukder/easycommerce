@@ -82,15 +82,18 @@ local run: `ALLOW_CONSOLE_SMS=true pnpm --filter @repo/web start` (it logs a lou
 | `storage:sweep` (`--apply`)                     | List (or delete) orphaned upload objects, see [Object storage](#object-storage) |
 | `db:migrate`                                    | `prisma migrate dev` (creates its own shadow DB, owner has `CREATEDB`)          |
 | `db:deploy`                                     | `prisma migrate deploy`                                                         |
-| `db:seed`                                       | Idempotent demo data                                                            |
+| `db:seed`                                       | Idempotent demo data incl. the catalogue (`packages/core/scripts/seed.ts`)      |
 | `db:reset`                                      | Drop, re-migrate and re-seed (dev only)                                         |
 | `db:studio`                                     | Prisma Studio                                                                   |
 
 `pnpm test` runs integration tests against the database in `.env`, so start it first.
 
+`pnpm --filter @repo/web test:layout` runs the mobile layout check against a running `next start`; see
+[Layout check](#layout-check-mobile-first-admin).
+
 ## Database design
 
-- **Tenant tables** (`users`, `store_settings`, `categories`, `products`, `variants`,
+- **Tenant tables** (`users`, `store_settings`, `categories`, `products`, `variants`, `product_images`,
   `customers`, `orders`, `order_items`, `otp_codes`, `sessions`) all have `store_id`, an index on it, and
   only composite unique constraints that include it. `stores` is the tenant root.
 - **IDs** are cuid2; names are snake_case via `@map`/`@@map`.
@@ -331,6 +334,85 @@ anything invalid on read.
 - `<head>`: title and description from Social & SEO in the store's language (fallback: name / tagline),
   Open Graph + Twitter tags with the logo as an absolute `og:image`, and the store's favicon.
 
+## Catalogue
+
+### Model (`day3_catalogue`)
+
+- **categories**: `name_bn`/`name_en`, optional descriptions, an image (`image_key` under
+  `stores/<id>/category/`), `is_active`, `sort_order`, soft delete. Two levels at most: a sub-category can't
+  have children (checked in `catalog/categories.ts` and by a trigger, which also rejects another store's
+  parent). Slugs are unique per store among non-deleted rows.
+- **products**: `title_bn`/`title_en`, plain-text descriptions (≤ 5000, line breaks kept), `category_id`,
+  `status` DRAFT | ACTIVE | ARCHIVED, `is_featured` + `featured_order` (max 12 featured), soft delete, and the
+  option axes `options = [{ key: "size" | "colour", values: [{ id, bn, en, hex? }] }]` (≤ 2 axes, ≤ 20 values).
+  No price on the product: prices live on variants.
+- **variants**: `option_values` ({ size?, colour? } value ids) with a derived `option_key` ("m|red", CHECK) and
+  one live variant per combination; `sku` (unique per store among live variants), `price`, `sale_price`
+  (< price, CHECK), `stock` (≥ 0), `weight_grams`, `image_id` (a photo of the same product, trigger), `is_active`,
+  soft delete. Every product has at least one variant; a simple product has one with empty option values.
+- **product_images** (RLS): 1600 px WebP + 400 px thumb under `stores/<id>/product/` (CHECK), dimensions, alt
+  text bn/en, `sort_order` (the first is the cover). At most 10 per product.
+
+Services live in `packages/core/src/catalog` (schemas, slugs, the variant matrix, categories, products, images,
+admin and storefront queries); everything runs through `withStore()`. Client components import
+`@repo/core/catalog-client` (schemas and pure helpers only).
+
+### Variants and pricing
+
+- Prices are entered in taka (Bangla digits accepted) and stored in poisha. The editor's **Price** is the
+  default for new combinations; each variant can override price, sale price, stock, SKU and active.
+- Adding/removing axis values reconciles the matrix: variants whose combination still exists keep their
+  price, stock and SKU; new combinations get the default price, stock 0 and a suggested SKU
+  `<SLUG>-<SIZE>-<COLOUR>` (made unique with -2, -3); removed ones are soft-deleted. A SKU you type is never
+  renamed: a clash is `SKU_TAKEN`.
+- Slugs come from the English title (or a small Bangla → Latin transliteration, else a random id) with
+  -2/-3 suffixes; editable.
+- Stock edits are optimistic: the editor sends the variant's `updated_at`; a stale edit returns
+  `STALE_UPDATE` with the current value instead of overwriting.
+- Trash: deleting moves a product to the trash (restore possible; a slug taken meanwhile gets a suffix). OWNER
+  only: **delete for good** (`POST /api/admin/products/purge`) removes the rows and the image objects. STAFF
+  can do everything else (`catalog:manage`). Duplicate copies texts, options and variants (new SKUs, stock 0,
+  DRAFT) and copies the image objects to new keys.
+
+### Product photos
+
+Sellers upload phone photos (3–12 MB, often rotated, sometimes HEIC). In the browser
+(`apps/web/src/lib/image-compress.ts`, a Web Worker with OffscreenCanvas when available):
+`createImageBitmap(file, { imageOrientation: "from-image" })` → long edge ≤ 2000 px → WebP (JPEG if the browser
+can't encode WebP) at 0.82, lowering quality (and then size) until ≤ 1.5 MB. Re-encoding drops EXIF/GPS. A file
+the browser can't decode (e.g. HEIC on Android Chrome) shows a hint to choose JPEG / "Most compatible" and is
+never uploaded. The editor shows before/after sizes, uploads 2 at a time with progress
+(`POST /api/admin/products/[id]/images`, same-origin + session + `catalog:manage`), with retry and cancel.
+On the server the product pipeline makes a 1600 px WebP and a 400 px thumb and inserts the row; objects are
+deleted if the insert fails; an 11th photo is `IMAGE_LIMIT`. Photos can be reordered (drag, or ↑/↓ on phones),
+made the cover, given alt text, deleted (objects too) and linked to a colour (that colour's variants show it).
+
+### Storefront
+
+Home: featured products (in featured order), categories, newest. `/category/[slug]`: the category and its
+children, sort by newest or price, 24 per page. `/products/[slug]`: swipeable gallery with thumbnails, size chips
+and colour swatches (missing combinations disabled, out-of-stock ones marked), sale price with the regular
+price struck through, the colour's photo on selection, OG tags with the cover. Only ACTIVE, non-deleted
+products and active categories are visible; everything else is a 404. Ordering comes on Day 4.
+
+## Layout check (mobile-first admin)
+
+The admin uses a bottom navigation below 768 px and a sidebar above. Every page must work at 360 px:
+no horizontal scroll, tap targets ≥ 44 px, inputs ≥ 16 px text (no iOS zoom), single-column forms, sticky
+bars above the bottom navigation and safe-area insets.
+
+```sh
+pnpm build && ROOT_DOMAIN=localhost:3000 ALLOW_CONSOLE_SMS=true pnpm --filter @repo/web start > next.log 2>&1 &
+SERVER_LOG=$PWD/next.log pnpm --filter @repo/web test:layout
+```
+
+It uses the installed Google Chrome (playwright-core, `channel: "chrome"`, no browser download), logs in as
+the seeded OWNER and STAFF with the OTP from the server log, visits every admin page, the onboarding wizard
+(a temporary PENDING store, deleted afterwards), login/verify, the root signup pages and the storefront at
+360×740 and 1280×800, and fails on horizontal scroll, targets smaller than 44×44 (the element, or its
+`<label>`) and phone inputs under 16 px. Screenshots go to `docs/screenshots/day3/`. The seeded phones
+receive at most 3 codes per 15 minutes, so back-to-back runs may need a pause.
+
 ## Internationalisation (next-intl)
 
 - No locale-prefixed routes: tenancy already uses the host. `proxy.ts` tags each request
@@ -366,8 +448,9 @@ codes, never prose: schemas use codes as zod messages, and actions translate the
 - `STORAGE_PROVIDER=s3`: `S3CompatibleProvider` (`@aws-sdk/client-s3`); one implementation for R2
   and Spaces.
 
-Upload pipeline (`processAndStoreImage(kind, …)` in `packages/core/src/images.ts`, reused by
-product images on Day 3): JPEG, PNG or WebP verified by magic bytes, ≤ 5 MB, ≥ 128 px, ≤ 40 megapixels
+Upload pipeline (`processAndStoreImage(kind, …)` in `packages/core/src/images.ts`; kinds `logo`, `product`,
+`category`): JPEG, PNG or WebP verified by magic bytes, ≤ 5 MB, a minimum short edge (logo 128 px, product
+and category 300 px), ≤ 40 megapixels
 (sharp `limitInputPixels`, checked from the header before decoding) →
 sharp (auto-orient, EXIF and metadata stripped) → logo ≤ 512×512 WebP + 64×64 favicon PNG under
 immutable keys `stores/<storeId>/logo/<cuid>.webp` and `stores/<storeId>/favicon/<cuid>.png`
@@ -410,10 +493,11 @@ S3_OBJECT_ACL=public-read   # Spaces objects are private by default
 `If-None-Match`) and the immutable Cache-Control.
 
 **Orphan sweep**: `pnpm storage:sweep` lists objects under `stores/<id>/` that are older than 24 h and
-either aren't referenced by any `store_settings` row (logo/favicon keys) or belong to a deleted store.
+either aren't referenced (store logo/favicon, category images, product images and thumbs, including those of
+products in the trash) or belong to a deleted store.
 It's a dry run by default; `--apply` deletes them, and `--min-age-hours=N` changes the age. It works with local
 disk and S3 (`ListObjectsV2`), and runs as the BYPASSRLS admin role (it must see every store's references).
-Schedule it daily. Day 3 must add product image keys to `loadStorageReferences`.
+Schedule it daily.
 
 Tests use `LocalDiskProvider` and a mocked S3 client (`aws-sdk-client-mock`). One live
 upload/delete test runs only when all of `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`,
