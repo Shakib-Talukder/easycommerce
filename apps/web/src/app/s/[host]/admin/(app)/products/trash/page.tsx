@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { CatalogNav, PageHeader } from "@/components/catalog/catalog-nav";
 import { ConfirmButton } from "@/components/catalog/confirm-button";
-import { permanentDeleteAction, restoreProductsAction } from "@/server/actions/catalog";
+import { restoreProductsAction } from "@/server/actions/catalog";
 import { requirePermission } from "@/server/auth";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -73,7 +73,7 @@ export default async function TrashPage({
               </form>
               {owner ? (
                 <ConfirmButton
-                  action={permanentDeleteAction}
+                  action="/api/admin/products/purge"
                   fields={{ ids: p.id }}
                   label={t("deletePermanently")}
                   question={t("confirm", { title })}

@@ -10,7 +10,6 @@ import {
   deleteCategory,
   duplicateProduct,
   moveCategory,
-  permanentlyDeleteProducts,
   productInputSchema,
   removeCategoryImage,
   reorderFeatured,
@@ -142,14 +141,6 @@ export async function restoreProductsAction(formData: FormData): Promise<void> {
   await restoreProducts(store.id, ids(formData));
   revalidatePath("/admin/products");
   redirect("/admin/products/trash?restored=1");
-}
-
-/** OWNER only: deletes trashed products' rows and image objects for good. */
-export async function permanentDeleteAction(formData: FormData): Promise<void> {
-  const { store } = await requirePermission("catalog:delete");
-  await permanentlyDeleteProducts(store.id, ids(formData));
-  revalidatePath("/admin/products");
-  redirect("/admin/products/trash?deleted=1");
 }
 
 // ---------------------------------------------------------------------------

@@ -18,7 +18,8 @@ export function ConfirmButton({
   danger = true,
   testId,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  /** A server action, or a URL for a plain POST form (route handler). */
+  action: string | ((formData: FormData) => void | Promise<void>);
   fields: Record<string, string>;
   label: ReactNode;
   question: ReactNode;
@@ -33,7 +34,11 @@ export function ConfirmButton({
     ? "border border-red-300 text-red-700 dark:border-red-800 dark:text-red-300"
     : "border border-neutral-300 dark:border-neutral-700";
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2" data-confirm={testId}>
+    <form
+      {...(typeof action === "string" ? { action, method: "post" } : { action })}
+      className="flex flex-wrap items-center gap-2"
+      data-confirm={testId}
+    >
       {Object.entries(fields).map(([k, v]) => (
         <input key={k} type="hidden" name={k} value={v} />
       ))}
